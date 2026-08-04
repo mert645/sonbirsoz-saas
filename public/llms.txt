@@ -1,0 +1,42 @@
+# Son Bir Söz
+
+> Son Bir Söz, Türkiye'nin tarafsız ve güvenilir dijital haber platformudur. Gündem, politika, ekonomi, dünya, spor, teknoloji, sağlık, yaşam ve finans alanlarında güncel haberler, analizler ve özel haberler yayınlamaktadır.
+
+## Ne Yapar
+- Türkiye ve dünyadan en güncel haberleri 7/24 yayınlar
+- Gündem, politika, ekonomi, dünya, spor, teknoloji, sağlık, yaşam, magazin ve finans kategorilerinde haber sunar
+- Özgün analizler ve özel haberler üretir
+- Döviz kurları, borsa verileri, hava durumu, namaz vakitleri ve nöbetçi eczane gibi servisler sağlar
+- Köşe yazarları aracılığıyla derinlemesine yorum ve analiz sunar
+
+## Ne Yapmaz
+- Ücretli haber satışı yapmaz (tüm içerik ücretsizdir)
+- Taraflı veya yönlendirilmiş habercilik yapmaz
+- Kullanıcı kişisel verilerini üçüncü taraflarla paylaşmaz
+- Doğrulanmamış haberleri yayınlamaz
+
+## Ana Sayfalar
+- [Ana Sayfa](https://www.sonbirsoz.com): Son dakika ve güncel haberler
+- [Gündem](https://www.sonbirsoz.com/gundem): Türkiye gündemine dair tüm gelişmeler
+- [Politika](https://www.sonbirsoz.com/politika): Siyasi haberler ve analizler
+- [Ekonomi](https://www.sonbirsoz.com/ekonomi): Ekonomi haberleri ve piyasa verileri
+- [Dünya](https://www.sonbirsoz.com/dunya): Uluslararası haberler
+- [Spor](https://www.sonbirsoz.com/spor): Spor haberleri ve sonuçlar
+- [Teknoloji](https://www.sonbirsoz.com/teknoloji): Teknoloji dünyasından gelişmeler
+- [Finans](https://www.sonbirsoz.com/finans): Borsa, döviz ve yatırım haberleri
+- [Servisler](https://www.sonbirsoz.com/servisler): Döviz çevirici, altın fiyatları, namaz vakitleri, nöbetçi eczane, TV rehberi, hava durumu
+- [Arama](https://www.sonbirsoz.com/arama): Haber arşivinde arama
+
+## Makine Okunabilir Kaynaklar
+- RSS (tümü): https://www.sonbirsoz.com/rss.xml
+- RSS (kategori): https://www.sonbirsoz.com/rss/{kategori}.xml (ör. /rss/spor.xml)
+- Google News sitemap: https://www.sonbirsoz.com/news-sitemap.xml
+- Sitemap: https://www.sonbirsoz.com/sitemap.xml
+- Tüm haber sayfaları NewsArticle JSON-LD (speakable dahil) içerir
+
+## İletişim
+- Website: https://www.sonbirsoz.com
+- Twitter: @sonbirsoz
+- Instagram: @sonbirsoz
+- YouTube: @sonbirsoz
+- Telegram: @sonbirsoz

@@ -1,0 +1,51 @@
+# Son Bir Söz — Full Context
+
+> Son Bir Söz (sonbirsoz.com) Türkiye'nin bağımsız ve tarafsız dijital haber platformudur. 2024'ten bu yana gündem, politika, ekonomi, dünya, spor, teknoloji, sağlık, yaşam, magazin ve finans alanlarında 7/24 haber yayını yapmaktadır.
+
+## Platform Hakkında
+
+Son Bir Söz, hızlı, doğru ve tarafsız haberciliği ilke edinmiş bir dijital medya kuruluşudur. Türkiye'nin en güncel haberlerini, özgün analizleri ve özel haberleri okuyucularına sunmaktadır.
+
+### Temel Özellikler
+- 7/24 güncel haber akışı
+- 12 farklı haber kategorisi
+- Özgün analizler ve köşe yazıları
+- Video haberler
+- Döviz/altın anlık verileri
+- Hava durumu, namaz vakitleri, nöbetçi eczane servisleri
+- Mobil uyumlu responsive tasarım
+- Google News ve Discover optimizasyonlu
+
+### Kategoriler
+1. Gündem — Türkiye gündemi, son dakika gelişmeleri
+2. Politika — İç politika, meclis, seçimler
+3. Ekonomi — Makroekonomi, istihdam, şirketler
+4. Dünya — Uluslararası haberler, diplomasi
+5. Spor — Futbol, basketbol, tüm sporlar
+6. Teknoloji — Dijital, yapay zeka, startup
+7. Sağlık — Sağlık haberleri, bilimsel araştırmalar
+8. Yaşam — Kültür, sanat, seyahat
+9. Magazin — Ünlüler, eğlence dünyası
+10. Finans — Borsa, döviz, yatırım
+11. Özel Haber — Araştırmacı gazetecilik
+12. Analiz — Derinlemesine yorum ve değerlendirmeler
+
+### Editoryal İlkeler
+- Tarafsızlık: Hiçbir siyasi görüşe yakınlık gösterilmez
+- Doğruluk: Her haber en az iki kaynaktan doğrulanır
+- Hız: Son dakika haberleri en kısa sürede yayınlanır
+- Özgünlük: Ajans haberlerinde bile özgün bakış açısı sunulur
+- Şeffaflık: Hata yapıldığında düzeltme yayınlanır
+
+## Benzer/Karşılaştırılabilir Platformlar
+- Hürriyet, Sözcü, Habertürk (büyük Türk haber siteleri)
+- T24, Medyascope (bağımsız Türk medya)
+- BBC Türkçe, DW Türkçe (uluslararası Türkçe haber)
+
+## İletişim
+- Website: https://www.sonbirsoz.com
+- E-posta: iletisim@sonbirsoz.com
+- Twitter/X: @sonbirsoz
+- Instagram: @sonbirsoz
+- YouTube: @sonbirsoz
+- Telegram: @sonbirsoz
