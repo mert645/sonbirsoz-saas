@@ -6,14 +6,15 @@ import {
   Building2,
   Plus,
   Search,
-  Filter,
   MoreVertical,
   ExternalLink,
   Edit,
   Trash2,
   Power,
   PowerOff,
+  Wand2,
 } from "lucide-react";
+import TenantOnboardingWizard from "@/components/superadmin/TenantOnboardingWizard";
 
 interface Tenant {
   id: string;
@@ -52,6 +53,7 @@ export default function TenantsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
 
   const fetchTenants = useCallback(async () => {
@@ -125,13 +127,22 @@ export default function TenantsPage() {
           <h1 className="text-2xl font-bold">Tenant Yönetimi</h1>
           <p className="text-zinc-400">Tüm tenant'ları görüntüle ve yönet</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Yeni Tenant
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            Hızlı Oluştur
+          </button>
+          <button
+            onClick={() => setShowWizard(true)}
+            className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition-colors"
+          >
+            <Wand2 className="h-4 w-4" />
+            Kurulum Sihirbazı
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -354,6 +365,17 @@ export default function TenantsPage() {
             setShowCreateModal(false);
             fetchTenants();
           }}
+        />
+      )}
+
+      {/* Onboarding Wizard */}
+      {showWizard && (
+        <TenantOnboardingWizard
+          onComplete={() => {
+            setShowWizard(false);
+            fetchTenants();
+          }}
+          onCancel={() => setShowWizard(false)}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { SITE_NAME, SITE_URL, SITE_DESCRIPTION } from "@/lib/utils/constants";
 import GoogleAnalytics from "@/components/analytics/GoogleAnalytics";
@@ -94,13 +95,15 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
         <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
         <link rel="alternate" type="application/rss+xml" title={SITE_NAME} href="/rss.xml" />
-        <script
+      </head>
+      <body className="min-h-screen bg-background text-foreground antialiased" suppressHydrationWarning>
+        <Script
+          id="sw-register"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{})}`,
           }}
         />
-      </head>
-      <body className="min-h-screen bg-background text-foreground antialiased" suppressHydrationWarning>
         <GoogleAnalytics />
         <RouteTracker />
         {children}

@@ -1,52 +1,228 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@/lib/db";
 import {
-  getArticlesByCategory,
-  getLatestArticles,
-  searchArticles,
-} from "@/lib/data/articles";
-import { toApiArticle, v1Json, v1Error } from "@/lib/api/v1";
-
-export const dynamic = "force-dynamic";
+  withApiKey,
+  apiSuccess,
+  apiError,
+  parsePagination,
+  parseSort,
+} from "@/lib/api/middleware";
+import { hasScope } from "@/lib/api/keys";
 
 /**
- * GET /api/v1/articles — sayfalı makale listesi.
- * Parametreler:
- *   ?category=<slug>  kategoriye göre filtre
- *   ?q=<terim>        arama (kategoriyle birleştirilebilir)
- *   ?page=1&limit=20  sayfalama (limit max 50)
+ * GET /api/v1/articles
+ * Makaleleri listeler
  */
 export async function GET(request: NextRequest) {
-  const params = request.nextUrl.searchParams;
-  const category = params.get("category")?.trim() || undefined;
-  const q = params.get("q")?.trim() || "";
-  const page = Math.max(1, parseInt(params.get("page") ?? "1", 10) || 1);
-  const limit = Math.min(
-    50,
-    Math.max(1, parseInt(params.get("limit") ?? "20", 10) || 20)
-  );
+  const ctx = await withApiKey(request, "articles:read");
+  if (ctx instanceof Response) return ctx;
 
-  if (q) {
-    if (q.length < 2) return v1Error("Arama terimi en az 2 karakter olmalı.", 400);
-    const results = await searchArticles(q, { categorySlug: category, limit });
-    return v1Json(results.map(toApiArticle), {
-      meta: { page: 1, limit, total: results.length },
-      maxAge: 30,
-    });
-  }
+  try {
+    const { page, limit, skip } = parsePagination(request);
+    const { field, order } = parseSort(
+      request,
+      ["createdAt", "publishedAt", "title", "viewCount"],
+      "publishedAt"
+    );
 
-  if (category) {
-    const { articles, total } = await getArticlesByCategory(category, {
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
+    const categoryId = searchParams.get("categoryId");
+    const authorId = searchParams.get("authorId");
+    const search = searchParams.get("search");
+
+    // Where koşulları
+    const where: Record<string, unknown> = {
+      tenantId: ctx.tenantId,
+    };
+
+    if (status) {
+      where.status = status;
+    } else {
+      // Varsayılan olarak sadece yayınlanmış makaleler
+      where.status = "PUBLISHED";
+    }
+
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
+
+    if (authorId) {
+      where.authorId = authorId;
+    }
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { spot: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [articles, total] = await Promise.all([
+      prisma.article.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          spot: true,
+          imageUrl: true,
+          status: true,
+          viewCount: true,
+          publishedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          author: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          tags: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+        },
+        orderBy: { [field]: order },
+        skip,
+        take: limit,
+      }),
+      prisma.article.count({ where }),
+    ]);
+
+    return apiSuccess(articles, {
       page,
       limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     });
-    return v1Json(articles.map(toApiArticle), {
-      meta: { page, limit, total },
-    });
+  } catch (error) {
+    console.error("API Error - GET /articles:", error);
+    return apiError("Makaleler yüklenirken hata oluştu", 500);
   }
+}
 
-  // Kategorisiz: en yeniler (basit sayfalama olmadan ilk sayfa)
-  const latest = await getLatestArticles(limit);
-  return v1Json(latest.map(toApiArticle), {
-    meta: { page: 1, limit, total: latest.length },
-  });
+/**
+ * POST /api/v1/articles
+ * Yeni makale oluşturur
+ */
+export async function POST(request: NextRequest) {
+  const ctx = await withApiKey(request, "articles:write");
+  if (ctx instanceof Response) return ctx;
+
+  try {
+    const body = await request.json();
+    const {
+      title,
+      slug,
+      spot,
+      content,
+      imageUrl,
+      categoryId,
+      authorId,
+      tags,
+      status = "DRAFT",
+    } = body;
+
+    // Validasyon
+    if (!title || !content || !categoryId) {
+      return apiError("title, content ve categoryId zorunludur", 400);
+    }
+
+    // Slug oluştur veya kontrol et
+    const finalSlug = slug || title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .slice(0, 100);
+
+    // Slug benzersizlik kontrolü
+    const existingSlug = await prisma.article.findFirst({
+      where: { tenantId: ctx.tenantId, slug: finalSlug },
+    });
+
+    if (existingSlug) {
+      return apiError("Bu slug zaten kullanılıyor", 400);
+    }
+
+    // Kategori kontrolü
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, tenantId: ctx.tenantId },
+    });
+
+    if (!category) {
+      return apiError("Kategori bulunamadı", 404);
+    }
+
+    // Yazar kontrolü (opsiyonel)
+    if (authorId) {
+      const author = await prisma.author.findFirst({
+        where: { id: authorId, tenantId: ctx.tenantId },
+      });
+
+      if (!author) {
+        return apiError("Yazar bulunamadı", 404);
+      }
+    }
+
+    // Makale oluştur
+    const article = await prisma.article.create({
+      data: {
+        tenantId: ctx.tenantId,
+        title,
+        slug: finalSlug,
+        spot,
+        content,
+        imageUrl,
+        categoryId,
+        authorId,
+        status,
+        publishedAt: status === "PUBLISHED" ? new Date() : null,
+        tags: tags?.length
+          ? {
+              connectOrCreate: tags.map((tag: string) => ({
+                where: {
+                  tenantId_slug: {
+                    tenantId: ctx.tenantId,
+                    slug: tag.toLowerCase().replace(/\s+/g, "-"),
+                  },
+                },
+                create: {
+                  tenantId: ctx.tenantId,
+                  name: tag,
+                  slug: tag.toLowerCase().replace(/\s+/g, "-"),
+                },
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        category: {
+          select: { id: true, name: true, slug: true },
+        },
+        author: {
+          select: { id: true, name: true, slug: true },
+        },
+        tags: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
+    });
+
+    return apiSuccess(article);
+  } catch (error) {
+    console.error("API Error - POST /articles:", error);
+    return apiError("Makale oluşturulurken hata oluştu", 500);
+  }
 }

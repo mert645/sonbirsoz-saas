@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, SessionProvider, useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -30,34 +30,40 @@ function SuperAdminContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     if (status === "loading") return;
     
     if (!session) {
-      router.push("/superadmin/giris");
+      router.push("/superadmin-giris");
       return;
     }
 
     if (session.user?.role !== "SUPER_ADMIN") {
       router.push("/admin/dashboard");
     }
-  }, [session, status, router]);
+  }, [session, status, router, mounted]);
 
-  if (status === "loading") {
+  if (!mounted || status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-red-500 border-t-transparent" />
       </div>
     );
   }
 
   if (!session || session.user?.role !== "SUPER_ADMIN") {
-    return null;
-  }
-
-  if (pathname === "/superadmin/giris") {
-    return <>{children}</>;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-red-500 border-t-transparent" />
+      </div>
+    );
   }
 
   return (
@@ -111,7 +117,7 @@ function SuperAdminContent({ children }: { children: React.ReactNode }) {
             <p className="text-sm text-zinc-300 truncate">{session.user?.email}</p>
           </div>
           <button
-            onClick={() => signOut({ callbackUrl: "/superadmin/giris" })}
+            onClick={() => signOut({ callbackUrl: "/superadmin-giris" })}
             className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-white"
           >
             <LogOut className="h-4 w-4" />

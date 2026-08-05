@@ -21,6 +21,9 @@ import {
   Mail,
   Clapperboard,
   Building2,
+  CreditCard,
+  Palette,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +49,9 @@ const ADMIN_NAV = [
   { name: "Kullanıcılar", href: "/admin/kullanicilar", icon: Users },
   { name: "Otomasyon", href: "/admin/otomasyon", icon: Zap },
   { name: "Analitik", href: "/admin/analitik", icon: BarChart3 },
+  { name: "Plan & Kullanım", href: "/admin/fatura", icon: CreditCard },
+  { name: "API Anahtarları", href: "/admin/api-keys", icon: Key },
+  { name: "Tema", href: "/admin/tema", icon: Palette },
   { name: "Ayarlar", href: "/admin/ayarlar", icon: Settings },
 ];
 

@@ -29,6 +29,7 @@ const KNOWN_FIRST_SEGMENTS = new Set<string>([
   "offline",
   "admin",
   "superadmin",
+  "superadmin-giris",
   "api",
   "rss",
   "sitemap.xml",
@@ -174,8 +175,36 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // ─── SUPER ADMIN GİRİŞ SAYFASI ───
+  // Bu sayfa public, auth gerektirmez
+  if (pathname === "/superadmin-giris") {
+    return NextResponse.next();
+  }
+
+  // ─── SUPER ADMIN ROUTES ───
+  if (pathname.startsWith("/superadmin")) {
+    if (isAuthBypassEnabled()) {
+      return NextResponse.next();
+    }
+
+    const token = await getToken({
+      req: request,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    const isSuperAdmin = !!token && token.role === "SUPER_ADMIN";
+
+    if (!isSuperAdmin) {
+      const loginUrl = new URL("/superadmin-giris", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    return NextResponse.next();
+  }
+
   // Eski sonbirsoz.com haber URL'leri (/haber-slug) → /kategori/haber-slug 301
-  if (!pathname.startsWith("/admin") && !pathname.startsWith("/superadmin")) {
+  if (!pathname.startsWith("/admin")) {
     // Önce açık bölüm haritası (eski kategori/landing sayfaları)
     const sectionTarget = LEGACY_SECTION_REDIRECTS[pathname];
     if (sectionTarget) {
@@ -191,38 +220,6 @@ export async function proxy(request: NextRequest) {
     const legacyRedirect = await handleLegacyArticleUrl(request);
     if (legacyRedirect) return legacyRedirect;
     // Admin dışı tüm yollar (public sayfalar) auth guard'a tabi değildir.
-    return NextResponse.next();
-  }
-
-  // ─── SUPER ADMIN ROUTES ───
-  if (pathname.startsWith("/superadmin")) {
-    if (isAuthBypassEnabled()) {
-      if (pathname === "/superadmin/giris") {
-        return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
-      }
-      return NextResponse.next();
-    }
-
-    const token = await getToken({
-      req: request,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
-
-    const isSuperAdmin = !!token && token.role === "SUPER_ADMIN";
-
-    if (pathname === "/superadmin/giris") {
-      if (isSuperAdmin) {
-        return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
-      }
-      return NextResponse.next();
-    }
-
-    if (!isSuperAdmin) {
-      const loginUrl = new URL("/superadmin/giris", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
     return NextResponse.next();
   }
 

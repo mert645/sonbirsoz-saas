@@ -29,7 +29,7 @@ export const authOptions: NextAuthOptions = {
 
           if (!user || !user.passwordHash) return null;
 
-          const validRoles = ["ADMIN", "EDITOR", "AUTHOR"];
+          const validRoles = ["SUPER_ADMIN", "ADMIN", "EDITOR", "AUTHOR"];
           if (!validRoles.includes(user.role)) return null;
 
           const valid = await bcrypt.compare(

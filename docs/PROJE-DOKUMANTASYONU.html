@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SonBirSöz SaaS Platform - Proje Dokümantasyonu</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #1a1a1a;
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 20mm;
+      background: white;
+    }
+    
+    h1 {
+      color: #dc2626;
+      font-size: 28px;
+      margin-bottom: 10px;
+      border-bottom: 3px solid #dc2626;
+      padding-bottom: 10px;
+    }
+    
+    h2 {
+      color: #1e3a8a;
+      font-size: 20px;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      border-left: 4px solid #1e3a8a;
+      padding-left: 10px;
+    }
+    
+    h3 {
+      color: #374151;
+      font-size: 16px;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+    
+    h4 {
+      color: #4b5563;
+      font-size: 14px;
+      margin-top: 15px;
+      margin-bottom: 8px;
+    }
+    
+    p {
+      margin-bottom: 10px;
+    }
+    
+    .meta {
+      color: #6b7280;
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 12px;
+    }
+    
+    th, td {
+      border: 1px solid #d1d5db;
+      padding: 8px 10px;
+      text-align: left;
+    }
+    
+    th {
+      background: #f3f4f6;
+      font-weight: 600;
+    }
+    
+    tr:nth-child(even) {
+      background: #f9fafb;
+    }
+    
+    code {
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Consolas', monospace;
+      font-size: 11px;
+    }
+    
+    pre {
+      background: #1f2937;
+      color: #e5e7eb;
+      padding: 15px;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 11px;
+      margin: 15px 0;
+    }
+    
+    pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+    
+    ul, ol {
+      margin: 10px 0 10px 20px;
+    }
+    
+    li {
+      margin-bottom: 5px;
+    }
+    
+    .checkbox {
+      color: #10b981;
+    }
+    
+    .checkbox-empty {
+      color: #9ca3af;
+    }
+    
+    .section {
+      page-break-inside: avoid;
+      margin-bottom: 20px;
+    }
+    
+    .highlight {
+      background: #fef3c7;
+      padding: 10px 15px;
+      border-radius: 8px;
+      border-left: 4px solid #f59e0b;
+      margin: 15px 0;
+    }
+    
+    .success {
+      background: #d1fae5;
+      border-left-color: #10b981;
+    }
+    
+    .warning {
+      background: #fee2e2;
+      border-left-color: #ef4444;
+    }
+    
+    .diagram {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 10px;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    
+    .toc {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    
+    .toc h3 {
+      margin-top: 0;
+    }
+    
+    .toc ul {
+      list-style: none;
+      margin-left: 0;
+    }
+    
+    .toc li {
+      padding: 3px 0;
+    }
+    
+    .page-break {
+      page-break-after: always;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+    
+    .badge-success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .badge-warning {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    .badge-danger {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    @media print {
+      body {
+        padding: 15mm;
+      }
+      
+      .page-break {
+        page-break-after: always;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🚀 SonBirSöz SaaS Platform</h1>
+  <p class="meta">
+    <strong>Versiyon:</strong> 1.0 | 
+    <strong>Son Güncelleme:</strong> 5 Ağustos 2026 | 
+    <strong>Durum:</strong> <span class="badge badge-warning">Geliştirme Aşamasında</span>
+  </p>
+
+  <div class="toc">
+    <h3>📋 İçindekiler</h3>
+    <ul>
+      <li>1. Proje Özeti</li>
+      <li>2. Mimari Yapı</li>
+      <li>3. Tamamlanan Fazlar (Phase 1-4)</li>
+      <li>4. Dosya Yapısı</li>
+      <li>5. Veritabanı Şeması</li>
+      <li>6. API Endpoints</li>
+      <li>7. Eksik Kalan Kısımlar</li>
+      <li>8. Canlıya Taşıma Rehberi</li>
+      <li>9. Geliştirici Notları</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>🎯 1. Proje Özeti</h2>
+    
+    <h3>Amaç</h3>
+    <p>Mevcut <strong>Son Bir Söz</strong> haber sitesi admin panelini, farklı müşterilere satılabilecek <strong>multi-tenant SaaS platformuna</strong> dönüştürmek.</p>
+    
+    <h3>Hedef Kullanım Senaryoları</h3>
+    <ul>
+      <li><code>sonbirsozmuzik.com</code> - Müzik haberleri sitesi</li>
+      <li><code>sonbirsozspor.com</code> - Spor haberleri sitesi</li>
+      <li><code>demo.sonbirsoz-saas.com</code> - Demo tenant</li>
+      <li>Farklı firmalar için white-label çözümler</li>
+    </ul>
+    
+    <h3>Teknoloji Stack</h3>
+    <table>
+      <tr><th>Katman</th><th>Teknoloji</th></tr>
+      <tr><td>Frontend</td><td>Next.js 16, React 19, TypeScript</td></tr>
+      <tr><td>Styling</td><td>Tailwind CSS, shadcn/ui</td></tr>
+      <tr><td>Backend</td><td>Next.js API Routes</td></tr>
+      <tr><td>Database</td><td>PostgreSQL (Neon)</td></tr>
+      <tr><td>ORM</td><td>Prisma</td></tr>
+      <tr><td>Auth</td><td>NextAuth.js</td></tr>
+      <tr><td>Hosting</td><td>AWS Amplify</td></tr>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <div class="section">
+    <h2>🏗️ 2. Mimari Yapı</h2>
+    
+    <h3>Multi-Tenancy Modeli</h3>
+    <p><strong>Seçilen Yaklaşım:</strong> Shared Database, Shared Schema + <code>tenantId</code></p>
+    
+    <div class="diagram">
+┌─────────────────────────────────────────────────────────────┐
+│                         KULLANICILAR                         │
+├─────────────────┬─────────────────┬─────────────────────────┤
+│   Public Site   │   Admin Panel   │     Super Admin         │
+│  (Ziyaretçiler) │ (Tenant Admin)  │  (Platform Yöneticisi)  │
+└────────┬────────┴────────┬────────┴────────────┬────────────┘
+         │                 │                      │
+         ▼                 ▼                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Next.js Application                       │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │ /(public)   │  │ /(admin)    │  │ /(superadmin)       │  │
+│  │ Route Group │  │ Route Group │  │ Route Group         │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Proxy/Middleware                        │
+│  - Tenant identification (subdomain/header)                  │
+│  - Authentication check                                      │
+│  - Role-based access control                                 │
+└─────────────────────────────────────────────────────────────┘
+                            │
+         ┌──────────────────┼──────────────────┐
+         ▼                  ▼                  ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│ PostgreSQL      │ │ AWS S3          │ │ External APIs   │
+│ (Neon)          │ │ (Media Storage) │ │ (AI, Social)    │
+└─────────────────┘ └─────────────────┘ └─────────────────┘
+    </div>
+    
+    <h3>Route Grupları</h3>
+    <table>
+      <tr><th>Grup</th><th>Path</th><th>Açıklama</th></tr>
+      <tr><td>(public)</td><td>/</td><td>Herkese açık sayfalar</td></tr>
+      <tr><td>(admin)</td><td>/admin/*</td><td>Tenant admin paneli</td></tr>
+      <tr><td>(superadmin)</td><td>/superadmin/*</td><td>Platform yönetimi</td></tr>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <div class="section">
+    <h2>✅ 3. Tamamlanan Fazlar</h2>
+    
+    <h3>Phase 1: Multi-Tenancy Altyapısı <span class="badge badge-success">Tamamlandı</span></h3>
+    <ul>
+      <li><span class="checkbox">✓</span> Tenant, TenantUser, TenantSettings, TenantSubscription modelleri</li>
+      <li><span class="checkbox">✓</span> Tüm içerik modellerine <code>tenantId</code> eklendi</li>
+      <li><span class="checkbox">✓</span> Tenant context provider (React)</li>
+      <li><span class="checkbox">✓</span> Subdomain/header bazlı tenant routing</li>
+      <li><span class="checkbox">✓</span> API route'larında tenant izolasyonu</li>
+    </ul>
+    
+    <h3>Phase 2: Onboarding & Tenant Yönetimi <span class="badge badge-success">Tamamlandı</span></h3>
+    <ul>
+      <li><span class="checkbox">✓</span> Super Admin paneli (dashboard, tenants, users, settings, system)</li>
+      <li><span class="checkbox">✓</span> Tenant CRUD API'leri</li>
+      <li><span class="checkbox">✓</span> Tenant onboarding wizard</li>
+      <li><span class="checkbox">✓</span> Kullanıcı davet sistemi</li>
+      <li><span class="checkbox">✓</span> Tenant ayarları sayfası</li>
+    </ul>
+    
+    <h4>Super Admin Sayfaları</h4>
+    <table>
+      <tr><th>Sayfa</th><th>URL</th><th>Açıklama</th></tr>
+      <tr><td>Dashboard</td><td>/superadmin/dashboard</td><td>Platform istatistikleri</td></tr>
+      <tr><td>Tenants</td><td>/superadmin/tenants</td><td>Tenant listesi ve yönetimi</td></tr>
+      <tr><td>Users</td><td>/superadmin/users</td><td>Tüm kullanıcılar</td></tr>
+      <tr><td>Billing</td><td>/superadmin/billing</td><td>Abonelik yönetimi</td></tr>
+      <tr><td>Settings</td><td>/superadmin/settings</td><td>Platform ayarları</td></tr>
+      <tr><td>System</td><td>/superadmin/system</td><td>Sistem durumu</td></tr>
+    </table>
+    
+    <h3>Phase 3: Billing & Subscription <span class="badge badge-success">Tamamlandı</span></h3>
+    <ul>
+      <li><span class="checkbox">✓</span> Plan limitleri tanımı (Starter, Professional, Enterprise)</li>
+      <li><span class="checkbox">✓</span> Kullanım takibi sistemi</li>
+      <li><span class="checkbox">✓</span> Abonelik yönetimi API'leri</li>
+      <li><span class="checkbox">✓</span> Super Admin billing dashboard</li>
+      <li><span class="checkbox">✓</span> Tenant billing portal</li>
+      <li><span class="checkbox">✓</span> Kullanım limiti middleware'i</li>
+    </ul>
+    
+    <h4>Plan Özellikleri</h4>
+    <table>
+      <tr><th>Özellik</th><th>Starter</th><th>Professional</th><th>Enterprise</th></tr>
+      <tr><td>Fiyat</td><td>₺499/ay</td><td>₺1.499/ay</td><td>Özel</td></tr>
+      <tr><td>Kullanıcı</td><td>1</td><td>5</td><td>Sınırsız</td></tr>
+      <tr><td>Makale/ay</td><td>500</td><td>2.000</td><td>Sınırsız</td></tr>
+      <tr><td>Depolama</td><td>5 GB</td><td>25 GB</td><td>100 GB</td></tr>
+      <tr><td>AI Üretim</td><td>❌</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Video Stüdyo</td><td>❌</td><td>✅</td><td>✅</td></tr>
+      <tr><td>Custom Domain</td><td>❌</td><td>❌</td><td>✅</td></tr>
+      <tr><td>API Erişimi</td><td>❌</td><td>❌</td><td>✅</td></tr>
+    </table>
+    
+    <h3>Phase 4: White-Label & Theming <span class="badge badge-success">Tamamlandı</span></h3>
+    <ul>
+      <li><span class="checkbox">✓</span> CSS variables tabanlı dinamik tema sistemi</li>
+      <li><span class="checkbox">✓</span> Tenant logo/favicon dinamik yükleme</li>
+      <li><span class="checkbox">✓</span> 15 hazır tema preseti (6 kategoride)</li>
+      <li><span class="checkbox">✓</span> Tema önizleme ve seçim UI</li>
+      <li><span class="checkbox">✓</span> Admin panelde tema ayarları sayfası</li>
+    </ul>
+  </div>
+
+  <div class="page-break"></div>
+
+  <div class="section">
+    <h2>📁 4. Dosya Yapısı</h2>
+    
+    <pre><code>sonbirsoz-saas/
+├── prisma/
+│   ├── schema.prisma         # Veritabanı şeması
+│   └── seed.ts               # Seed data
+├── src/
+│   ├── app/
+│   │   ├── (admin)/          # Tenant admin paneli
+│   │   │   └── admin/
+│   │   │       ├── dashboard/
+│   │   │       ├── haberler/
+│   │   │       ├── kullanicilar/  # YENİ
+│   │   │       ├── fatura/        # YENİ
+│   │   │       ├── tema/          # YENİ
+│   │   │       └── ...
+│   │   ├── (superadmin)/     # Platform yönetimi
+│   │   │   └── superadmin/
+│   │   │       ├── dashboard/     # YENİ
+│   │   │       ├── tenants/       # YENİ
+│   │   │       ├── users/         # YENİ
+│   │   │       ├── billing/       # YENİ
+│   │   │       └── ...
+│   │   ├── (public)/         # Herkese açık sayfalar
+│   │   └── api/
+│   │       ├── admin/        # Tenant-scoped APIs
+│   │       ├── superadmin/   # Platform APIs
+│   │       └── tenant/       # Public tenant APIs
+│   ├── lib/
+│   │   ├── tenant/           # Tenant utilities
+│   │   ├── billing/          # Billing utilities (YENİ)
+│   │   ├── theme/            # Theme utilities (YENİ)
+│   │   └── ...
+│   └── proxy.ts              # Routing middleware
+└── docs/
+    └── PROJE-DOKUMANTASYONU.md</code></pre>
+  </div>
+
+  <div class="section">
+    <h2>🗄️ 5. Veritabanı Şeması</h2>
+    
+    <h3>Ana Modeller</h3>
+    <table>
+      <tr><th>Model</th><th>Açıklama</th></tr>
+      <tr><td>Tenant</td><td>Kiracı/müşteri bilgileri</td></tr>
+      <tr><td>TenantUser</td><td>Tenant-kullanıcı ilişkisi</td></tr>
+      <tr><td>TenantSettings</td><td>Tenant ayarları</td></tr>
+      <tr><td>TenantSubscription</td><td>Abonelik bilgileri</td></tr>
+      <tr><td>UsageRecord</td><td>Kullanım kayıtları</td></tr>
+      <tr><td>TenantInvitation</td><td>Kullanıcı davetleri</td></tr>
+    </table>
+    
+    <h3>Enum Tanımları</h3>
+    <table>
+      <tr><th>Enum</th><th>Değerler</th></tr>
+      <tr><td>TenantPlan</td><td>STARTER, PROFESSIONAL, ENTERPRISE</td></tr>
+      <tr><td>TenantRole</td><td>OWNER, ADMIN, EDITOR, AUTHOR</td></tr>
+      <tr><td>SubscriptionStatus</td><td>ACTIVE, PAST_DUE, CANCELED, TRIALING</td></tr>
+      <tr><td>UserRole</td><td>USER, ADMIN, SUPER_ADMIN</td></tr>
+    </table>
+  </div>
+
+  <div class="page-break"></div>
+
+  <div class="section">
+    <h2>⚠️ 6. Eksik Kalan Kısımlar</h2>
+    
+    <div class="highlight warning">
+      <strong>Phase 5: API & Entegrasyonlar</strong> - Yapılmadı
+    </div>
+    <ul>
+      <li><span class="checkbox-empty">☐</span> Public REST API (<code>/api/v1/</code>)</li>
+      <li><span class="checkbox-empty">☐</span> API Key oluşturma ve yönetimi</li>
+      <li><span class="checkbox-empty">☐</span> Rate limiting (plan bazlı)</li>
+      <li><span class="checkbox-empty">☐</span> API documentation (OpenAPI/Swagger)</li>
+      <li><span class="checkbox-empty">☐</span> Webhook sistemi</li>
+    </ul>
+    
+    <div class="highlight warning">
+      <strong>Phase 6: Gelişmiş Özellikler</strong> - Yapılmadı
+    </div>
+    <ul>
+      <li><span class="checkbox-empty">☐</span> Tenant bazlı AI konfigürasyonu</li>
+      <li><span class="checkbox-empty">☐</span> Multi-language desteği (i18n)</li>
+      <li><span class="checkbox-empty">☐</span> Gelişmiş analytics dashboard</li>
+    </ul>
+    
+    <div class="highlight warning">
+      <strong>Diğer Eksikler</strong>
+    </div>
+    <ul>
+      <li><span class="checkbox-empty">☐</span> <strong>Stripe Entegrasyonu:</strong> Şu an mock data kullanılıyor</li>
+      <li><span class="checkbox-empty">☐</span> <strong>Email Gönderimi:</strong> Davet emailları henüz gönderilmiyor</li>
+      <li><span class="checkbox-empty">☐</span> <strong>Custom Domain SSL:</strong> Wildcard SSL yapılandırması</li>
+      <li><span class="checkbox-empty">☐</span> <strong>Public Site Şablonları:</strong> Farklı site tasarımları</li>
+      <li><span class="checkbox-empty">☐</span> <strong>Row-Level Security:</strong> PostgreSQL RLS</li>
+      <li><span class="checkbox-empty">☐</span> <strong>Audit Logging:</strong> Kullanıcı aksiyonları</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>🚀 7. Canlıya Taşıma Rehberi</h2>
+    
+    <h3>1. Environment Variables</h3>
+    <pre><code># Database
+DATABASE_URL="postgresql://..."
+
+# Auth
+NEXTAUTH_SECRET="..."
+NEXTAUTH_URL="https://your-domain.com"
+
+# Stripe (Gerçek anahtarlar)
+STRIPE_SECRET_KEY="sk_live_..."
+STRIPE_PUBLISHABLE_KEY="pk_live_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+
+# AWS
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+S3_BUCKET_NAME="..."
+
+# AI Services
+OPENAI_API_KEY="..."</code></pre>
+    
+    <h3>2. Deployment Checklist</h3>
+    <ul>
+      <li><span class="checkbox-empty">☐</span> Environment variables ayarlandı</li>
+      <li><span class="checkbox-empty">☐</span> Database migration tamamlandı</li>
+      <li><span class="checkbox-empty">☐</span> DNS kayıtları yapılandırıldı</li>
+      <li><span class="checkbox-empty">☐</span> SSL sertifikaları aktif</li>
+      <li><span class="checkbox-empty">☐</span> Stripe webhook'ları test edildi</li>
+      <li><span class="checkbox-empty">☐</span> Super admin hesabı oluşturuldu</li>
+      <li><span class="checkbox-empty">☐</span> Email gönderimi test edildi</li>
+      <li><span class="checkbox-empty">☐</span> Monitoring/alerting kuruldu</li>
+    </ul>
+    
+    <h3>3. DNS Yapılandırması</h3>
+    <pre><code># Subdomain routing
+*.sonbirsoz-saas.com → Platform IP/CNAME
+
+# Custom domain örneği
+muzik.example.com → CNAME → platform.sonbirsoz-saas.com</code></pre>
+  </div>
+
+  <div class="page-break"></div>
+
+  <div class="section">
+    <h2>👨‍💻 8. Geliştirici Notları</h2>
+    
+    <h3>Test Hesapları (Development)</h3>
+    <table>
+      <tr><th>Rol</th><th>Email</th><th>Şifre</th></tr>
+      <tr><td>Super Admin</td><td>superadmin@sonbirsoz-saas.com</td><td>admin123</td></tr>
+      <tr><td>Demo Admin</td><td>admin@demo.sonbirsoz-saas.com</td><td>demo-password-123</td></tr>
+    </table>
+    
+    <h3>Önemli Komutlar</h3>
+    <pre><code># Development server
+npm run dev
+
+# Database migration
+npx prisma migrate deploy
+
+# Seed data
+npx prisma db seed
+
+# Prisma Studio
+npx prisma studio</code></pre>
+    
+    <h3>Bilinen Sorunlar</h3>
+    <ul>
+      <li><strong>Hydration Warning:</strong> Admin layout'ta minor uyarı var, fonksiyonelliği etkilemiyor</li>
+      <li><strong>ArticleEmbedding:</strong> pgvector extension gerektiriyor, şu an devre dışı</li>
+      <li><strong>Import Service:</strong> <code>importSonbirsozArticles</code> henüz tenant-aware değil</li>
+    </ul>
+    
+    <h3>Kullanım Limiti Kontrolü Örneği</h3>
+    <pre><code>import { withUsageLimit, canCreateArticle } from "@/lib/billing";
+
+export async function POST(request: Request) {
+  const tenantId = await getCurrentTenantId();
+  
+  // Limit kontrolü
+  const limitCheck = await withUsageLimit(tenantId, "ARTICLES");
+  if (limitCheck) return limitCheck; // 429 döner
+  
+  // Makale oluştur...
+}</code></pre>
+  </div>
+
+  <div class="section" style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+    <p style="text-align: center; color: #6b7280; font-size: 12px;">
+      <strong>SonBirSöz SaaS Platform</strong><br>
+      Bu dokümantasyon 5 Ağustos 2026 tarihinde oluşturulmuştur.<br>
+      Geliştirme devam ettikçe güncellenecektir.
+    </p>
+  </div>
+
+</body>
+</html>

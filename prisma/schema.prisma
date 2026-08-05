@@ -59,6 +59,8 @@ model Tenant {
   newsletterSubs     NewsletterSubscriber[]
   settings           TenantSettings?
   subscription       TenantSubscription?
+  apiKeys            ApiKey[]
+  webhooks           Webhook[]
 
   @@map("tenants")
 }
@@ -676,4 +678,66 @@ model NewsletterSubscriber {
   @@unique([tenantId, email])
   @@index([tenantId])
   @@map("newsletter_subscribers")
+}
+
+// ─── API & WEBHOOKS ───
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String    // "Mobile App", "WordPress Plugin"
+  key         String    @unique // sk_live_xxx
+  keyPrefix   String    // İlk 8 karakter (gösterim için)
+  scopes      String[]  // ["articles:read", "articles:write", "media:read"]
+  lastUsedAt  DateTime?
+  lastUsedIp  String?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([key])
+  @@map("api_keys")
+}
+
+model Webhook {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String   // "Article Notifications"
+  url         String
+  events      String[] // ["article.published", "article.updated", "comment.created"]
+  secret      String   // HMAC imzalama için
+  isActive    Boolean  @default(true)
+  failCount   Int      @default(0)
+  lastTriedAt DateTime?
+  lastSuccess DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id           String   @id @default(cuid())
+  webhookId    String
+  event        String   // "article.published"
+  payload      Json
+  statusCode   Int?
+  response     String?
+  duration     Int?     // ms
+  success      Boolean  @default(false)
+  attemptCount Int      @default(1)
+  createdAt    DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt(sort: Desc)])
+  @@map("webhook_deliveries")
 }
