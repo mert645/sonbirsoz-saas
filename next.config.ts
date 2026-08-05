@@ -40,10 +40,15 @@ const nextConfig: NextConfig = {
     "/api/cron/social-post": ["./assets/fonts/**"],
   },
   async headers() {
+    const isDev = process.env.NODE_ENV === "development";
+    
     const csp = [
       "default-src 'self'",
       // GA + Next inline script'leri (JSON-LD, sw kaydı) için unsafe-inline gerekli
-      "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
+      // Development'ta React debugging için unsafe-eval gerekli
+      isDev
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com"
+        : "script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com",
       "style-src 'self' 'unsafe-inline'",
       // Haber içeriği görselleri farklı CDN'lerden gelebilir
       "img-src 'self' https: data: blob:",
@@ -55,8 +60,8 @@ const nextConfig: NextConfig = {
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'self'",
-      "upgrade-insecure-requests",
-    ].join("; ");
+      isDev ? "" : "upgrade-insecure-requests",
+    ].filter(Boolean).join("; ");
 
     return [
       {

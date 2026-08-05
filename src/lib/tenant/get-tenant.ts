@@ -1,0 +1,102 @@
+import { headers } from "next/headers";
+import { cache } from "react";
+import { prisma } from "@/lib/prisma";
+
+export interface TenantContext {
+  id: string;
+  name: string;
+  slug: string;
+  plan: "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
+  settings: {
+    aiGenerationEnabled: boolean;
+    aiModerationEnabled: boolean;
+    videoStudioEnabled: boolean;
+    newsletterEnabled: boolean;
+    pushEnabled: boolean;
+  } | null;
+}
+
+/**
+ * Server-side: Request header'larından tenant'ı belirler
+ * Proxy.ts tarafından x-tenant-slug header'ı eklenir
+ */
+export const getCurrentTenantId = cache(async (): Promise<string | null> => {
+  const headersList = await headers();
+  const tenantSlug = headersList.get("x-tenant-slug");
+  
+  if (!tenantSlug) {
+    // Development fallback
+    const devSlug = process.env.DEV_TENANT_SLUG || "demo";
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: devSlug },
+      select: { id: true },
+    });
+    return tenant?.id || null;
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { slug: tenantSlug, isActive: true },
+    select: { id: true },
+  });
+
+  return tenant?.id || null;
+});
+
+/**
+ * Server-side: Tam tenant context'i döner
+ */
+export const getCurrentTenant = cache(async (): Promise<TenantContext | null> => {
+  const headersList = await headers();
+  let tenantSlug = headersList.get("x-tenant-slug");
+  
+  if (!tenantSlug) {
+    tenantSlug = process.env.DEV_TENANT_SLUG || "demo";
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { slug: tenantSlug, isActive: true },
+    include: {
+      settings: {
+        select: {
+          aiGenerationEnabled: true,
+          aiModerationEnabled: true,
+          videoStudioEnabled: true,
+          newsletterEnabled: true,
+          pushEnabled: true,
+        },
+      },
+    },
+  });
+
+  if (!tenant) return null;
+
+  return {
+    id: tenant.id,
+    name: tenant.name,
+    slug: tenant.slug,
+    plan: tenant.plan,
+    settings: tenant.settings,
+  };
+});
+
+/**
+ * API route'larında kullanmak için tenant ID'yi zorunlu olarak alır
+ * Tenant bulunamazsa hata fırlatır
+ */
+export async function requireTenantId(): Promise<string> {
+  const tenantId = await getCurrentTenantId();
+  if (!tenantId) {
+    throw new Error("Tenant not found");
+  }
+  return tenantId;
+}
+
+/**
+ * Prisma query'lerine tenant filtresi ekler
+ */
+export function withTenant<T extends Record<string, unknown>>(
+  tenantId: string,
+  where?: T
+): T & { tenantId: string } {
+  return { ...where, tenantId } as T & { tenantId: string };
+}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireEditor, makeSlug } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 const createSchema = z.object({
   name: z.string().min(1, "Yazar adı zorunludur"),
@@ -21,7 +22,10 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
+    const tenantId = await requireTenantId();
+    
     const authors = await prisma.author.findMany({
+      where: { tenantId },
       orderBy: { name: "asc" },
       include: {
         _count: { select: { articles: true } },
@@ -67,26 +71,31 @@ export async function POST(request: NextRequest) {
 
   const { name, slug: rawSlug, bio, avatar, email, expertise, socialLinks, isActive } = parsed.data;
 
-  const baseSlug = rawSlug ? makeSlug(rawSlug) : makeSlug(name);
-  let slug = baseSlug || `yazar-${Date.now()}`;
-  let n = 1;
-  while (await prisma.author.findUnique({ where: { slug } })) {
-    slug = `${baseSlug}-${n++}`;
-  }
-
-  if (email) {
-    const emailConflict = await prisma.author.findUnique({ where: { email } });
-    if (emailConflict) {
-      return NextResponse.json(
-        { error: "Bu e-posta adresi zaten kullanılıyor." },
-        { status: 409 }
-      );
-    }
-  }
-
   try {
+    const tenantId = await requireTenantId();
+    
+    const baseSlug = rawSlug ? makeSlug(rawSlug) : makeSlug(name);
+    let slug = baseSlug || `yazar-${Date.now()}`;
+    let n = 1;
+    while (await prisma.author.findUnique({ where: { tenantId_slug: { tenantId, slug } } })) {
+      slug = `${baseSlug}-${n++}`;
+    }
+
+    if (email) {
+      const emailConflict = await prisma.author.findUnique({ 
+        where: { tenantId_email: { tenantId, email } } 
+      });
+      if (emailConflict) {
+        return NextResponse.json(
+          { error: "Bu e-posta adresi zaten kullanılıyor." },
+          { status: 409 }
+        );
+      }
+    }
+
     const author = await prisma.author.create({
       data: {
+        tenantId,
         name,
         slug,
         bio: bio ?? null,

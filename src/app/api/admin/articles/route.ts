@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 /**
  * Admin-only article listing across all statuses (drafts, review, published).
+ * Tenant-filtered: only shows articles belonging to the current tenant.
  */
 export async function GET(request: NextRequest) {
   const user = await requireEditor();
@@ -16,8 +18,11 @@ export async function GET(request: NextRequest) {
   const q = searchParams.get("q");
 
   try {
+    const tenantId = await requireTenantId();
+    
     const rows = await prisma.article.findMany({
       where: {
+        tenantId,
         ...(status ? { status: status as never } : {}),
         ...(q
           ? { title: { contains: q, mode: "insensitive" } }

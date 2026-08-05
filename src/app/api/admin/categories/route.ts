@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireEditor, makeSlug } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 const createSchema = z.object({
   name: z.string().min(1, "Kategori adı zorunludur"),
@@ -21,7 +22,10 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
+    const tenantId = await requireTenantId();
+    
     const categories = await prisma.category.findMany({
+      where: { tenantId },
       orderBy: [{ order: "asc" }, { name: "asc" }],
       include: {
         _count: { select: { articles: true } },
@@ -69,16 +73,19 @@ export async function POST(request: NextRequest) {
 
   const { name, slug: rawSlug, color, description, icon, parentId, order, isActive } = parsed.data;
 
-  const baseSlug = rawSlug ? makeSlug(rawSlug) : makeSlug(name);
-  let slug = baseSlug || `kategori-${Date.now()}`;
-  let n = 1;
-  while (await prisma.category.findUnique({ where: { slug } })) {
-    slug = `${baseSlug}-${n++}`;
-  }
-
   try {
+    const tenantId = await requireTenantId();
+    
+    const baseSlug = rawSlug ? makeSlug(rawSlug) : makeSlug(name);
+    let slug = baseSlug || `kategori-${Date.now()}`;
+    let n = 1;
+    while (await prisma.category.findUnique({ where: { tenantId_slug: { tenantId, slug } } })) {
+      slug = `${baseSlug}-${n++}`;
+    }
+
     const category = await prisma.category.create({
       data: {
+        tenantId,
         name,
         slug,
         color: color ?? "#4F46E5",

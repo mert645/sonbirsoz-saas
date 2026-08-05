@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 export async function GET(_req: NextRequest) {
   const user = await requireEditor();
   if (!user) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
 
   try {
+    const tenantId = await requireTenantId();
+    
     const media = await prisma.media.findMany({
+      where: { tenantId },
       orderBy: { createdAt: "desc" },
       take: 500,
     });
 
-    // folder alanı DB'de henüz yoksa COALESCE ile güvenli fallback
     const data = media.map((m) => ({
       id: m.id,
       url: m.url,
@@ -23,7 +26,7 @@ export async function GET(_req: NextRequest) {
       size: m.size,
       format: m.format,
       createdAt: m.createdAt.toISOString(),
-      folder: ((m as Record<string, unknown>).folder as string) ?? "Genel",
+      folder: m.folder ?? "Genel",
     }));
 
     const folderSet = new Set(data.map((d) => d.folder));
@@ -41,6 +44,8 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
 
   try {
+    const tenantId = await requireTenantId();
+    
     const body = await request.json();
     const { url, filename, alt, caption, width, height, size, format, folder } = body as {
       url: string; filename: string; alt?: string; caption?: string;
@@ -53,6 +58,7 @@ export async function POST(request: NextRequest) {
 
     const media = await prisma.media.create({
       data: {
+        tenantId,
         url,
         filename,
         alt: alt ?? null,

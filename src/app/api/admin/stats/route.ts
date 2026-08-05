@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 export async function GET(_request: NextRequest) {
   const user = await requireEditor();
@@ -9,6 +10,7 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
+    const tenantId = await requireTenantId();
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -21,26 +23,29 @@ export async function GET(_request: NextRequest) {
       categoryStats,
       totalAuthors,
     ] = await Promise.all([
-      prisma.article.count(),
+      prisma.article.count({ where: { tenantId } }),
 
       prisma.article.groupBy({
         by: ["status"],
+        where: { tenantId },
         _count: { id: true },
       }),
 
       prisma.article.aggregate({
+        where: { tenantId },
         _sum: { viewCount: true },
       }),
 
       prisma.article.count({
         where: {
+          tenantId,
           status: "PUBLISHED",
           publishedAt: { gte: sevenDaysAgo },
         },
       }),
 
       prisma.article.findMany({
-        where: { status: "PUBLISHED" },
+        where: { tenantId, status: "PUBLISHED" },
         orderBy: { viewCount: "desc" },
         take: 5,
         select: {
@@ -54,11 +59,12 @@ export async function GET(_request: NextRequest) {
       }),
 
       prisma.category.findMany({
+        where: { tenantId },
         include: { _count: { select: { articles: true } } },
         orderBy: { order: "asc" },
       }),
 
-      prisma.author.count({ where: { isActive: true } }),
+      prisma.author.count({ where: { tenantId, isActive: true } }),
     ]);
 
     const statusMap: Record<string, number> = {};

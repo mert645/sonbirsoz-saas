@@ -5,7 +5,7 @@ import { isAuthBypassEnabled } from "@/lib/auth-guard";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { CATEGORIES } from "@/lib/utils/constants";
 
-const ADMIN_ROLES = ["ADMIN", "EDITOR", "AUTHOR"];
+const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "EDITOR", "AUTHOR"];
 
 /**
  * Eski sonbirsoz.com kök seviye haber URL'lerini (/haber-slug) yeni
@@ -140,12 +140,37 @@ function applyRateLimit(request: NextRequest): NextResponse | null {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const host = request.headers.get("host") || "";
+
+  // ─── MULTI-TENANT: Subdomain/Domain'den tenant belirleme ───
+  let tenantSlug: string | null = null;
+  
+  // Development ortamı
+  if (host.includes("localhost") || host.includes("127.0.0.1")) {
+    tenantSlug = process.env.DEV_TENANT_SLUG || "demo";
+  } else {
+    // Production: subdomain kontrolü
+    const baseDomain = process.env.BASE_DOMAIN || "sonbirsoz-saas.com";
+    if (host.endsWith(baseDomain)) {
+      const subdomain = host.replace(`.${baseDomain}`, "").split(".").pop();
+      const platformSubdomains = ["admin", "www", "app", "api"];
+      if (subdomain && !platformSubdomains.includes(subdomain)) {
+        tenantSlug = subdomain;
+      }
+    }
+  }
+
+  // Tenant header'ı ekle (server component'larda kullanılacak)
+  const response = NextResponse.next();
+  if (tenantSlug) {
+    response.headers.set("x-tenant-slug", tenantSlug);
+  }
 
   // API rate limiting (yalnızca eşleşen hassas yollar)
   if (pathname.startsWith("/api/")) {
     const limited = applyRateLimit(request);
     if (limited) return limited;
-    return NextResponse.next();
+    return response;
   }
 
   // Eski sonbirsoz.com haber URL'leri (/haber-slug) → /kategori/haber-slug 301

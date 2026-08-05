@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut, SessionProvider } from "next-auth/react";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   FileText,
@@ -19,9 +20,16 @@ import {
   ShieldAlert,
   Mail,
   Clapperboard,
+  Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SITE_NAME } from "@/lib/utils/constants";
+
+interface TenantInfo {
+  id: string;
+  name: string;
+  slug: string;
+  plan: "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
+}
 
 const ADMIN_NAV = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -40,32 +48,57 @@ const ADMIN_NAV = [
   { name: "Ayarlar", href: "/admin/ayarlar", icon: Settings },
 ];
 
+const PLAN_BADGES: Record<string, { label: string; className: string }> = {
+  STARTER: { label: "Starter", className: "bg-zinc-500/10 text-zinc-500" },
+  PROFESSIONAL: { label: "Pro", className: "bg-primary/10 text-primary" },
+  ENTERPRISE: { label: "Enterprise", className: "bg-amber-500/10 text-amber-600" },
+};
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [tenant, setTenant] = useState<TenantInfo | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/tenant")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.data) setTenant(json.data);
+      })
+      .catch(() => {});
+  }, []);
 
   // The login page renders without the admin chrome.
   if (pathname === "/admin/giris") {
     return <SessionProvider>{children}</SessionProvider>;
   }
 
+  const planBadge = tenant ? PLAN_BADGES[tenant.plan] : null;
+
   return (
     <SessionProvider>
       <div className="flex min-h-screen">
         {/* Sidebar */}
         <aside className="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-border bg-card">
-          {/* Logo */}
+          {/* Tenant Info */}
           <div className="flex h-14 items-center gap-2 border-b border-border px-4">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">
-                S
-              </span>
+              <Building2 className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-sm font-bold">{SITE_NAME}</span>
-            <span className="ml-auto rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold truncate">
+                {tenant?.name || "Yükleniyor..."}
+              </p>
+              {planBadge && (
+                <span className={cn("text-[10px] font-medium rounded px-1", planBadge.className)}>
+                  {planBadge.label}
+                </span>
+              )}
+            </div>
+            <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
               ADMIN
             </span>
           </div>
