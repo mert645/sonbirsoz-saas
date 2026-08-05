@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
-const putSchema = z.record(z.string(), z.any());
+const putSchema = z.object({
+  siteName: z.string().optional(),
+  tagline: z.string().optional(),
+  defaultSeoTitle: z.string().optional(),
+  defaultSeoDescription: z.string().optional(),
+  googleAnalyticsId: z.string().optional(),
+  socialLinks: z.record(z.string(), z.string()).optional(),
+});
 
 export async function GET(_request: NextRequest) {
   const user = await requireEditor();
@@ -11,13 +19,13 @@ export async function GET(_request: NextRequest) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
+
   try {
-    const rows = await prisma.siteSettings.findMany();
-    const data: Record<string, unknown> = {};
-    for (const row of rows) {
-      data[row.key] = row.value;
-    }
-    return NextResponse.json({ data });
+    const settings = await prisma.tenantSettings.findUnique({
+      where: { tenantId },
+    });
+    return NextResponse.json({ data: settings || {} });
   } catch (error) {
     console.error("Ayarlar getirilemedi:", error);
     return NextResponse.json({ error: "Ayarlar getirilemedi." }, { status: 500 });
@@ -30,6 +38,7 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
   const body = await request.json().catch(() => null);
   const parsed = putSchema.safeParse(body);
   if (!parsed.success) {
@@ -37,15 +46,11 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const upserts = Object.entries(parsed.data).map(([key, value]) =>
-      prisma.siteSettings.upsert({
-        where: { key },
-        update: { value },
-        create: { id: key, key, value },
-      })
-    );
-
-    await prisma.$transaction(upserts);
+    await prisma.tenantSettings.upsert({
+      where: { tenantId },
+      update: parsed.data,
+      create: { tenantId, ...parsed.data },
+    });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Ayarlar kaydedilemedi:", error);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -11,17 +12,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
   const sp = request.nextUrl.searchParams;
   const page = Math.max(1, parseInt(sp.get("page") || "1", 10));
   const limit = Math.min(100, Math.max(10, parseInt(sp.get("limit") || "50", 10)));
   const filter = sp.get("filter"); // "active" | "inactive" | null
 
-  const where =
-    filter === "active"
+  const where = {
+    tenantId,
+    ...(filter === "active"
       ? { isActive: true }
       : filter === "inactive"
         ? { isActive: false }
-        : {};
+        : {}),
+  };
 
   try {
     const [items, total, activeCount] = await Promise.all([
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
         },
       }),
       prisma.newsletterSubscriber.count({ where }),
-      prisma.newsletterSubscriber.count({ where: { isActive: true } }),
+      prisma.newsletterSubscriber.count({ where: { tenantId, isActive: true } }),
     ]);
 
     return NextResponse.json({ items, total, activeCount, page, limit });

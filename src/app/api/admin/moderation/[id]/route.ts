@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor, setArticleStatus } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 /**
  * İnsan moderatör kararı: kuyruktaki (REVIEW) içeriği onayla veya reddet.
@@ -13,6 +14,7 @@ export async function PATCH(
   const auth = await requireEditor();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = await requireTenantId();
   const { id } = await params;
   const body = (await req.json().catch(() => ({}))) as {
     action?: string;
@@ -27,16 +29,15 @@ export async function PATCH(
   }
 
   const log = await prisma.moderationLog.findUnique({
-    where: { id },
+    where: { id, tenantId },
     include: { article: { select: { id: true, status: true } }, comment: true },
   });
   if (!log) return NextResponse.json({ error: "Kayıt bulunamadı" }, { status: 404 });
 
   const approve = body.action === "approve";
 
-  // Log'a insan kararını işle
   const updated = await prisma.moderationLog.update({
-    where: { id },
+    where: { id, tenantId },
     data: {
       decision: approve ? "APPROVED" : "REJECTED",
       reviewedBy: auth.id || null,
@@ -45,7 +46,6 @@ export async function PATCH(
     },
   });
 
-  // Bağlı içeriğin durumunu güncelle
   if (log.articleId) {
     if (approve) {
       await setArticleStatus(log.articleId, "PUBLISHED", {

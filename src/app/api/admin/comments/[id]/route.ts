@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 export async function PATCH(
   req: NextRequest,
@@ -9,6 +10,7 @@ export async function PATCH(
   const auth = await requireEditor();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = await requireTenantId();
   const { id } = await params;
   const body = await req.json();
   const { status } = body as { status: "APPROVED" | "REJECTED" | "PENDING" };
@@ -18,7 +20,7 @@ export async function PATCH(
   }
 
   const comment = await prisma.comment.update({
-    where: { id },
+    where: { id, tenantId },
     data: { status },
     include: {
       user: { select: { id: true, name: true, email: true } },
@@ -36,7 +38,8 @@ export async function DELETE(
   const auth = await requireEditor();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = await requireTenantId();
   const { id } = await params;
-  await prisma.comment.delete({ where: { id } });
+  await prisma.comment.delete({ where: { id, tenantId } });
   return NextResponse.json({ ok: true });
 }

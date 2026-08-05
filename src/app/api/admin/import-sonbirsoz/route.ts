@@ -11,12 +11,15 @@ export const dynamic = "force-dynamic";
  * aktarır. Admin oturumu veya CRON_SECRET ile yetkilendirilir.
  *
  * Body (opsiyonel): { limit?: number }  — kaç haber işlensin (varsayılan 60).
+ * 
+ * NOT: Bu endpoint henüz tam tenant-aware değil. Phase 2'de güncellenecek.
  */
 export async function POST(request: NextRequest) {
   const cronSecret = request.headers.get("x-cron-secret");
   const isCron = !!cronSecret && cronSecret === process.env.CRON_SECRET;
 
   let userId: string | undefined;
+  
   if (!isCron) {
     const user = await requireEditor();
     if (!user) {

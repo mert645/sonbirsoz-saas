@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 import { generateArticleShort, isVideoConfigured } from "@/lib/video/short-generator";
 import {
   uploadYouTubeShort,
@@ -17,17 +18,18 @@ export async function GET(request: NextRequest) {
   const user = await requireEditor();
   if (!user) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
 
+  const tenantId = await requireTenantId();
   const id = request.nextUrl.searchParams.get("id");
   if (id) {
-    const job = await prisma.mediaGeneration.findUnique({ where: { id } });
+    const job = await prisma.mediaGeneration.findFirst({ where: { id, tenantId } });
     if (!job) return NextResponse.json({ error: "İş bulunamadı" }, { status: 404 });
     return NextResponse.json({ data: job });
   }
 
-  // Lambda kesintisi vb. nedenlerle takılı kalan işleri temizle (10 dk eşiği)
   await prisma.mediaGeneration
     .updateMany({
       where: {
+        tenantId,
         purpose: "VIDEO",
         status: { in: ["PENDING", "PROCESSING"] },
         createdAt: { lt: new Date(Date.now() - 10 * 60 * 1000) },
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
     .catch(() => {});
 
   const jobs = await prisma.mediaGeneration.findMany({
-    where: { purpose: "VIDEO" },
+    where: { tenantId, purpose: "VIDEO" },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {
@@ -66,6 +68,7 @@ export async function POST(request: NextRequest) {
   const user = await requireEditor();
   if (!user) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
 
+  const tenantId = await requireTenantId();
   let body: { articleId?: string; jobId?: string; action?: string };
   try {
     body = await request.json();
@@ -73,7 +76,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Geçersiz istek" }, { status: 400 });
   }
 
-  // YouTube Shorts yükleme (önizleme + onay sonrası)
   if (body.jobId && body.action === "youtube") {
     if (!isYouTubeConfigured()) {
       return NextResponse.json(
@@ -81,8 +83,8 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       );
     }
-    const job = await prisma.mediaGeneration.findUnique({
-      where: { id: body.jobId },
+    const job = await prisma.mediaGeneration.findFirst({
+      where: { id: body.jobId, tenantId },
       include: {
         article: {
           select: {
@@ -125,10 +127,15 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Video üretimi
   if (!body.articleId) {
     return NextResponse.json({ error: "articleId gerekli" }, { status: 400 });
   }
+
+  const article = await prisma.article.findFirst({ where: { id: body.articleId, tenantId } });
+  if (!article) {
+    return NextResponse.json({ error: "Makale bulunamadı" }, { status: 404 });
+  }
+
   if (!isVideoConfigured()) {
     return NextResponse.json(
       { error: "Video pipeline yapılandırılmamış (ffmpeg + AWS kimlik bilgileri gerekli)" },

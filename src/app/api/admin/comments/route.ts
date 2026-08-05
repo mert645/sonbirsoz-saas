@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   const auth = await requireEditor();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = await requireTenantId();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") || undefined;
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const limit = 20;
 
-  const where = status ? { status: status as "PENDING" | "APPROVED" | "REJECTED" } : {};
+  const where = { 
+    tenantId,
+    ...(status ? { status: status as "PENDING" | "APPROVED" | "REJECTED" } : {})
+  };
 
   const [total, comments] = await Promise.all([
     prisma.comment.count({ where }),
@@ -30,11 +35,11 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ data: comments, total, page, limit });
 }
 
-// Test amaçlı: admin panelinden yorum oluştur
 export async function POST(req: NextRequest) {
   const auth = await requireEditor();
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const tenantId = await requireTenantId();
   const body = await req.json();
   const { articleId, content } = body as { articleId: string; content: string };
   if (!articleId || !content) {
@@ -43,6 +48,7 @@ export async function POST(req: NextRequest) {
 
   const comment = await prisma.comment.create({
     data: {
+      tenantId,
       articleId,
       userId: auth.id!,
       content,

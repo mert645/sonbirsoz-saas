@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireEditor, makeSlug } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -23,6 +24,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
   const { id } = await params;
 
   const body = await request.json().catch(() => null);
@@ -34,7 +36,7 @@ export async function PATCH(
     );
   }
 
-  const existing = await prisma.author.findUnique({ where: { id } });
+  const existing = await prisma.author.findFirst({ where: { id, tenantId } });
   if (!existing) {
     return NextResponse.json({ error: "Yazar bulunamadı." }, { status: 404 });
   }
@@ -46,7 +48,7 @@ export async function PATCH(
 
   if (email !== undefined) {
     if (email !== null && email !== existing.email) {
-      const conflict = await prisma.author.findUnique({ where: { email } });
+      const conflict = await prisma.author.findFirst({ where: { tenantId, email } });
       if (conflict && conflict.id !== id) {
         return NextResponse.json(
           { error: "Bu e-posta adresi zaten kullanılıyor." },
@@ -62,7 +64,7 @@ export async function PATCH(
     let slug = baseSlug || `yazar-${Date.now()}`;
     let n = 1;
     while (true) {
-      const conflict = await prisma.author.findUnique({ where: { slug } });
+      const conflict = await prisma.author.findFirst({ where: { tenantId, slug } });
       if (!conflict || conflict.id === id) break;
       slug = `${baseSlug}-${n++}`;
     }
@@ -72,7 +74,7 @@ export async function PATCH(
     let slug = baseSlug || `yazar-${Date.now()}`;
     let n = 1;
     while (true) {
-      const conflict = await prisma.author.findUnique({ where: { slug } });
+      const conflict = await prisma.author.findFirst({ where: { tenantId, slug } });
       if (!conflict || conflict.id === id) break;
       slug = `${baseSlug}-${n++}`;
     }
@@ -80,7 +82,7 @@ export async function PATCH(
   }
 
   try {
-    const author = await prisma.author.update({ where: { id }, data });
+    const author = await prisma.author.update({ where: { id, tenantId }, data });
     return NextResponse.json({ data: author });
   } catch (error) {
     console.error("Yazar güncellenemedi:", error);
@@ -97,10 +99,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
   const { id } = await params;
 
-  const existing = await prisma.author.findUnique({
-    where: { id },
+  const existing = await prisma.author.findFirst({
+    where: { id, tenantId },
     include: { _count: { select: { articles: true } } },
   });
 
@@ -120,7 +123,7 @@ export async function DELETE(
   }
 
   try {
-    await prisma.author.delete({ where: { id } });
+    await prisma.author.delete({ where: { id, tenantId } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Yazar silinemedi:", error);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 import {
   PLATFORM_REQUIREMENTS,
   isPlatformConfigured,
@@ -27,6 +28,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
   const platforms = Object.keys(PLATFORM_REQUIREMENTS) as Platform[];
 
   const items = await Promise.all(
@@ -46,7 +48,7 @@ export async function GET() {
 
       try {
         const post = await prisma.socialPost.findFirst({
-          where: { platform: platform.toUpperCase() as never },
+          where: { tenantId, platform: platform.toUpperCase() as never },
           orderBy: { createdAt: "desc" },
           select: {
             status: true,

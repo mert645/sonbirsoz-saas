@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireEditor, makeSlug } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
@@ -23,6 +24,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
   const { id } = await params;
 
   const body = await request.json().catch(() => null);
@@ -34,7 +36,7 @@ export async function PATCH(
     );
   }
 
-  const existing = await prisma.category.findUnique({ where: { id } });
+  const existing = await prisma.category.findFirst({ where: { id, tenantId } });
   if (!existing) {
     return NextResponse.json({ error: "Kategori bulunamadı." }, { status: 404 });
   }
@@ -49,7 +51,7 @@ export async function PATCH(
     let slug = baseSlug || `kategori-${Date.now()}`;
     let n = 1;
     while (true) {
-      const conflict = await prisma.category.findUnique({ where: { slug } });
+      const conflict = await prisma.category.findFirst({ where: { tenantId, slug } });
       if (!conflict || conflict.id === id) break;
       slug = `${baseSlug}-${n++}`;
     }
@@ -59,7 +61,7 @@ export async function PATCH(
     let slug = baseSlug || `kategori-${Date.now()}`;
     let n = 1;
     while (true) {
-      const conflict = await prisma.category.findUnique({ where: { slug } });
+      const conflict = await prisma.category.findFirst({ where: { tenantId, slug } });
       if (!conflict || conflict.id === id) break;
       slug = `${baseSlug}-${n++}`;
     }
@@ -67,7 +69,7 @@ export async function PATCH(
   }
 
   try {
-    const category = await prisma.category.update({ where: { id }, data });
+    const category = await prisma.category.update({ where: { id, tenantId }, data });
     return NextResponse.json({ data: category });
   } catch (error) {
     console.error("Kategori güncellenemedi:", error);
@@ -84,10 +86,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
   const { id } = await params;
 
-  const existing = await prisma.category.findUnique({
-    where: { id },
+  const existing = await prisma.category.findFirst({
+    where: { id, tenantId },
     include: { _count: { select: { articles: true } } },
   });
 
@@ -107,7 +110,7 @@ export async function DELETE(
   }
 
   try {
-    await prisma.category.delete({ where: { id } });
+    await prisma.category.delete({ where: { id, tenantId } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Kategori silinemedi:", error);

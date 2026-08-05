@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireEditor } from "@/lib/data/article-mutations";
+import { requireTenantId } from "@/lib/tenant";
 import { generateArticleAudio, isTtsConfigured } from "@/lib/tts/polly";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = await requireTenantId();
+
   if (!isTtsConfigured()) {
     return NextResponse.json(
       { error: "TTS yapılandırılmamış (AWS kimlik bilgileri gerekli)" },
@@ -32,6 +35,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.articleId) {
+    const article = await prisma.article.findFirst({ where: { id: body.articleId, tenantId } });
+    if (!article) {
+      return NextResponse.json({ error: "Makale bulunamadı" }, { status: 404 });
+    }
     const url = await generateArticleAudio(body.articleId);
     if (!url) {
       return NextResponse.json({ error: "Ses üretilemedi" }, { status: 500 });
@@ -41,7 +48,7 @@ export async function POST(request: NextRequest) {
 
   const limit = Math.min(20, Math.max(1, body.backfill ?? 10));
   const articles = await prisma.article.findMany({
-    where: { status: "PUBLISHED", audioUrl: null },
+    where: { tenantId, status: "PUBLISHED", audioUrl: null },
     orderBy: { publishedAt: "desc" },
     take: limit,
     select: { id: true, slug: true },
