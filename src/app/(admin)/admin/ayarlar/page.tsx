@@ -3,37 +3,45 @@
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Save, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
+import { Save, Loader2, CheckCircle, AlertTriangle, Building2 } from "lucide-react";
 import { SocialStatusPanel } from "@/components/admin/social-status-panel";
 
-interface Settings {
-  site_name: string;
-  site_description: string;
-  contact_email: string;
-  meta_title_template: string;
-  google_analytics_id: string;
-  allow_indexing: boolean;
-  social_twitter: string;
-  social_instagram: string;
-  social_youtube: string;
+interface TenantSettings {
+  siteName: string;
+  tagline: string;
+  defaultSeoTitle: string;
+  defaultSeoDescription: string;
+  googleAnalyticsId: string;
+  socialLinks: {
+    twitter?: string;
+    instagram?: string;
+    facebook?: string;
+    youtube?: string;
+  };
 }
 
-const DEFAULTS: Settings = {
-  site_name: "Son Bir Söz",
-  site_description: "Doğru, güvenilir ve tarafsız habercilik",
-  contact_email: "iletisim@sonbirsoz.com",
-  meta_title_template: "%title% | Son Bir Söz",
-  google_analytics_id: "",
-  allow_indexing: true,
-  social_twitter: "@sonbirsoz",
-  social_instagram: "@sonbirsoz",
-  social_youtube: "@SonBirSoz",
+interface TenantInfo {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  primaryColor: string;
+}
+
+const DEFAULTS: TenantSettings = {
+  siteName: "",
+  tagline: "",
+  defaultSeoTitle: "",
+  defaultSeoDescription: "",
+  googleAnalyticsId: "",
+  socialLinks: {},
 };
 
 type Toast = { type: "success" | "error"; message: string } | null;
 
 export default function AdminAyarlarPage() {
-  const [settings, setSettings] = useState<Settings>(DEFAULTS);
+  const [settings, setSettings] = useState<TenantSettings>(DEFAULTS);
+  const [tenant, setTenant] = useState<TenantInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
@@ -46,22 +54,28 @@ export default function AdminAyarlarPage() {
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/settings");
-      if (!res.ok) return;
-      const json = await res.json();
-      const data = json.data as Record<string, unknown>;
+      const [settingsRes, tenantRes] = await Promise.all([
+        fetch("/api/admin/settings"),
+        fetch("/api/admin/tenant"),
+      ]);
 
-      setSettings({
-        site_name: String(data.site_name ?? DEFAULTS.site_name),
-        site_description: String(data.site_description ?? DEFAULTS.site_description),
-        contact_email: String(data.contact_email ?? DEFAULTS.contact_email),
-        meta_title_template: String(data.meta_title_template ?? DEFAULTS.meta_title_template),
-        google_analytics_id: String(data.google_analytics_id ?? DEFAULTS.google_analytics_id),
-        allow_indexing: data.allow_indexing !== false,
-        social_twitter: String(data.social_twitter ?? DEFAULTS.social_twitter),
-        social_instagram: String(data.social_instagram ?? DEFAULTS.social_instagram),
-        social_youtube: String(data.social_youtube ?? DEFAULTS.social_youtube),
-      });
+      if (settingsRes.ok) {
+        const json = await settingsRes.json();
+        const data = json.data || {};
+        setSettings({
+          siteName: data.siteName || "",
+          tagline: data.tagline || "",
+          defaultSeoTitle: data.defaultSeoTitle || "",
+          defaultSeoDescription: data.defaultSeoDescription || "",
+          googleAnalyticsId: data.googleAnalyticsId || "",
+          socialLinks: data.socialLinks || {},
+        });
+      }
+
+      if (tenantRes.ok) {
+        const json = await tenantRes.json();
+        if (json.data) setTenant(json.data);
+      }
     } catch {
       // Defaults remain in place on error
     } finally {
@@ -94,8 +108,15 @@ export default function AdminAyarlarPage() {
     }
   }
 
-  function set<K extends keyof Settings>(key: K, value: Settings[K]) {
+  function set<K extends keyof TenantSettings>(key: K, value: TenantSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setSocialLink(key: string, value: string) {
+    setSettings((prev) => ({
+      ...prev,
+      socialLinks: { ...prev.socialLinks, [key]: value },
+    }));
   }
 
   const inputClass =
@@ -145,6 +166,34 @@ export default function AdminAyarlarPage() {
         </div>
       ) : (
         <div className="mt-6 space-y-6">
+          {/* Tenant Bilgileri */}
+          {tenant && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5" />
+                  Tenant Bilgileri
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-lg border bg-muted/50 p-4">
+                    <p className="text-sm text-muted-foreground">Tenant Adı</p>
+                    <p className="font-medium">{tenant.name}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/50 p-4">
+                    <p className="text-sm text-muted-foreground">Slug</p>
+                    <p className="font-medium">{tenant.slug}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/50 p-4">
+                    <p className="text-sm text-muted-foreground">Plan</p>
+                    <p className="font-medium">{tenant.plan}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Genel Bilgiler */}
           <Card>
             <CardHeader>
@@ -155,25 +204,18 @@ export default function AdminAyarlarPage() {
                 <label className="text-sm font-medium">Site Adı</label>
                 <input
                   className={inputClass}
-                  value={settings.site_name}
-                  onChange={(e) => set("site_name", e.target.value)}
+                  value={settings.siteName}
+                  onChange={(e) => set("siteName", e.target.value)}
+                  placeholder={tenant?.name || "Site adı"}
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">Açıklama</label>
+                <label className="text-sm font-medium">Slogan</label>
                 <input
                   className={inputClass}
-                  value={settings.site_description}
-                  onChange={(e) => set("site_description", e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">İletişim E-posta</label>
-                <input
-                  type="email"
-                  className={inputClass}
-                  value={settings.contact_email}
-                  onChange={(e) => set("contact_email", e.target.value)}
+                  value={settings.tagline}
+                  onChange={(e) => set("tagline", e.target.value)}
+                  placeholder="Doğru, güvenilir ve tarafsız habercilik"
                 />
               </div>
             </CardContent>
@@ -186,45 +228,32 @@ export default function AdminAyarlarPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="text-sm font-medium">Meta Title Şablonu</label>
+                <label className="text-sm font-medium">Varsayılan SEO Başlığı</label>
                 <input
                   className={inputClass}
-                  value={settings.meta_title_template}
-                  onChange={(e) => set("meta_title_template", e.target.value)}
-                  placeholder="%title% | Son Bir Söz"
+                  value={settings.defaultSeoTitle}
+                  onChange={(e) => set("defaultSeoTitle", e.target.value)}
+                  placeholder="Site Adı | Slogan"
                 />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  <code className="rounded bg-muted px-1">%title%</code> sayfa başlığıyla değiştirilir
-                </p>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Varsayılan SEO Açıklaması</label>
+                <textarea
+                  className={inputClass}
+                  rows={3}
+                  value={settings.defaultSeoDescription}
+                  onChange={(e) => set("defaultSeoDescription", e.target.value)}
+                  placeholder="Sitenizin kısa açıklaması..."
+                />
               </div>
               <div>
                 <label className="text-sm font-medium">Google Analytics ID</label>
                 <input
                   className={inputClass}
-                  value={settings.google_analytics_id}
-                  onChange={(e) => set("google_analytics_id", e.target.value)}
+                  value={settings.googleAnalyticsId}
+                  onChange={(e) => set("googleAnalyticsId", e.target.value)}
                   placeholder="G-XXXXXXXXXX"
                 />
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={settings.allow_indexing}
-                  onClick={() => set("allow_indexing", !settings.allow_indexing)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    settings.allow_indexing ? "bg-primary" : "bg-input"
-                  }`}
-                >
-                  <span
-                    className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg transition-transform ${
-                      settings.allow_indexing ? "translate-x-4" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-                <label className="text-sm">
-                  Arama motorlarına indekslemeye izin ver
-                </label>
               </div>
             </CardContent>
           </Card>
@@ -235,34 +264,43 @@ export default function AdminAyarlarPage() {
           {/* Sosyal Medya */}
           <Card>
             <CardHeader>
-              <CardTitle>Sosyal Medya</CardTitle>
+              <CardTitle>Sosyal Medya Linkleri</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <label className="text-sm font-medium">Twitter (X)</label>
                 <input
                   className={inputClass}
-                  value={settings.social_twitter}
-                  onChange={(e) => set("social_twitter", e.target.value)}
-                  placeholder="@sonbirsoz"
+                  value={settings.socialLinks.twitter || ""}
+                  onChange={(e) => setSocialLink("twitter", e.target.value)}
+                  placeholder="https://twitter.com/hesabiniz"
                 />
               </div>
               <div>
                 <label className="text-sm font-medium">Instagram</label>
                 <input
                   className={inputClass}
-                  value={settings.social_instagram}
-                  onChange={(e) => set("social_instagram", e.target.value)}
-                  placeholder="@sonbirsoz"
+                  value={settings.socialLinks.instagram || ""}
+                  onChange={(e) => setSocialLink("instagram", e.target.value)}
+                  placeholder="https://instagram.com/hesabiniz"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Facebook</label>
+                <input
+                  className={inputClass}
+                  value={settings.socialLinks.facebook || ""}
+                  onChange={(e) => setSocialLink("facebook", e.target.value)}
+                  placeholder="https://facebook.com/sayfaniz"
                 />
               </div>
               <div>
                 <label className="text-sm font-medium">YouTube</label>
                 <input
                   className={inputClass}
-                  value={settings.social_youtube}
-                  onChange={(e) => set("social_youtube", e.target.value)}
-                  placeholder="@SonBirSoz"
+                  value={settings.socialLinks.youtube || ""}
+                  onChange={(e) => setSocialLink("youtube", e.target.value)}
+                  placeholder="https://youtube.com/@kanaliniz"
                 />
               </div>
             </CardContent>

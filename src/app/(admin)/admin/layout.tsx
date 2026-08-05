@@ -43,6 +43,7 @@ const ADMIN_NAV = [
   { name: "Yazarlar", href: "/admin/yazarlar", icon: Users },
   { name: "Yorumlar", href: "/admin/yorumlar", icon: MessageSquare },
   { name: "Aboneler", href: "/admin/aboneler", icon: Mail },
+  { name: "Kullanıcılar", href: "/admin/kullanicilar", icon: Users },
   { name: "Otomasyon", href: "/admin/otomasyon", icon: Zap },
   { name: "Analitik", href: "/admin/analitik", icon: BarChart3 },
   { name: "Ayarlar", href: "/admin/ayarlar", icon: Settings },
