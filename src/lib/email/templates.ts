@@ -499,3 +499,96 @@ export function securityAlertEmail(data: {
     logoUrl: data.logoUrl,
   });
 }
+
+// ─── LEGACY EMAIL FUNCTIONS (Backward Compatibility) ───
+
+export interface BulletinArticle {
+  title: string;
+  spot: string | null;
+  url: string;
+  imageUrl?: string;
+}
+
+/**
+ * Son dakika haber emaili (legacy)
+ */
+export function breakingEmail(
+  title: string,
+  spot: string | null,
+  articleUrl: string,
+  unsubscribeUrl: string
+): { subject: string; html: string } {
+  const content = `
+    <h2 style="margin-top: 0; color: #dc2626;">🔴 Son Dakika</h2>
+    
+    <h3 style="font-size: 1.5rem; margin-bottom: 16px;">${title}</h3>
+    
+    ${spot ? `<p style="color: #4b5563; margin-bottom: 24px;">${spot}</p>` : ""}
+    
+    <div style="text-align: center;">
+      <a href="${articleUrl}" class="button">Haberi Oku</a>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+      <a href="${unsubscribeUrl}" style="color: #9ca3af;">Abonelikten çık</a>
+    </p>
+  `;
+
+  return {
+    subject: `🔴 Son Dakika: ${title}`,
+    html: baseLayout(content, {
+      previewText: `Son Dakika: ${title}`,
+      primaryColor: "#dc2626",
+    }),
+  };
+}
+
+/**
+ * Günlük bülten emaili (legacy)
+ */
+export function dailyBulletinEmail(
+  articles: BulletinArticle[],
+  unsubscribeUrl: string
+): { subject: string; html: string } {
+  const today = new Date().toLocaleDateString("tr-TR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const articlesList = articles
+    .map(
+      (article) => `
+      <div style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">
+        <h3 style="margin: 0 0 8px 0;">
+          <a href="${article.url}" style="color: #1f2937; text-decoration: none;">${article.title}</a>
+        </h3>
+        ${article.spot ? `<p style="color: #6b7280; margin: 0;">${article.spot}</p>` : ""}
+      </div>
+    `
+    )
+    .join("");
+
+  const content = `
+    <h2 style="margin-top: 0;">📰 Günün Özeti</h2>
+    <p style="color: #6b7280;">${today}</p>
+    
+    <div class="divider"></div>
+    
+    ${articlesList}
+    
+    <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+      <a href="${unsubscribeUrl}" style="color: #9ca3af;">Abonelikten çık</a>
+    </p>
+  `;
+
+  return {
+    subject: `📰 Günün Özeti - ${today}`,
+    html: baseLayout(content, {
+      previewText: `Bugünün en önemli haberleri`,
+    }),
+  };
+}
