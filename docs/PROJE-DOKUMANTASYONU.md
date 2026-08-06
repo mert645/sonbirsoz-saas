@@ -1,8 +1,9 @@
 # SonBirSöz SaaS Platform - Proje Dokümantasyonu
 
-**Versiyon:** 1.0  
-**Son Güncelleme:** 5 Ağustos 2026  
-**Proje Durumu:** Geliştirme Aşamasında (Phase 4 Tamamlandı)
+**Versiyon:** 1.1  
+**Son Güncelleme:** 6 Ağustos 2026  
+**Proje Durumu:** Geliştirme Aşamasında (Phase 5 Tamamlandı)  
+**GitHub:** https://github.com/mert645/sonbirsoz-saas
 
 ---
 
@@ -143,6 +144,9 @@ src/proxy.ts                  # Routing middleware
 | Sayfa | URL | Açıklama |
 |-------|-----|----------|
 | Kullanıcılar | `/admin/kullanicilar` | Tenant kullanıcıları |
+| Plan & Kullanım | `/admin/fatura` | Plan ve kullanım bilgisi |
+| API Anahtarları | `/admin/api-keys` | API key yönetimi (Enterprise) |
+| Tema | `/admin/tema` | Tema ayarları |
 | Ayarlar | `/admin/ayarlar` | Tenant ayarları |
 
 ---
@@ -205,6 +209,64 @@ src/app/(admin)/admin/tema/   # Tema ayarları sayfası
 
 ---
 
+### Phase 5: API & Entegrasyonlar ✓
+
+**Tamamlanan İşler:**
+- [x] Public REST API (`/api/v1/`) - Enterprise plan için
+- [x] API Key oluşturma ve yönetimi
+- [x] API Key doğrulama middleware
+- [x] Plan bazlı rate limiting
+- [x] Webhook sistemi (article.published, comment.created, vb.)
+- [x] Admin panelde API Key yönetim UI
+
+**API Key Sistemi:**
+- Format: `sbs_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx`
+- Scope bazlı yetkilendirme (articles:read, articles:write, vb.)
+- Sadece Enterprise plan için aktif
+
+**Public API Endpoints (`/api/v1/`):**
+| Method | Endpoint | Açıklama |
+|--------|----------|----------|
+| GET | `/articles` | Makale listesi |
+| POST | `/articles` | Makale oluştur |
+| GET | `/articles/[id]` | Makale detayı |
+| PATCH | `/articles/[id]` | Makale güncelle |
+| DELETE | `/articles/[id]` | Makale sil |
+| GET | `/categories` | Kategori listesi |
+| POST | `/categories` | Kategori oluştur |
+| GET | `/authors` | Yazar listesi |
+| POST | `/authors` | Yazar oluştur |
+| GET | `/media` | Medya listesi |
+| POST | `/media` | Medya kaydet |
+
+**Webhook Events:**
+- `article.created` - Makale oluşturulduğunda
+- `article.updated` - Makale güncellendiğinde
+- `article.published` - Makale yayınlandığında
+- `article.deleted` - Makale silindiğinde
+- `comment.created` - Yorum yapıldığında
+- `comment.approved` - Yorum onaylandığında
+- `media.uploaded` - Medya yüklendiğinde
+
+**Rate Limiting:**
+| Plan | Limit |
+|------|-------|
+| Enterprise | 1000 istek/dakika |
+| Professional | 100 istek/dakika |
+| Starter | 10 istek/dakika |
+
+**Önemli Dosyalar:**
+```
+src/lib/api/keys.ts           # API key oluşturma ve doğrulama
+src/lib/api/middleware.ts     # API doğrulama middleware
+src/lib/api/rate-limit.ts     # Rate limiting
+src/lib/api/webhooks.ts       # Webhook tetikleme sistemi
+src/app/api/v1/               # Public REST API endpoints
+src/app/(admin)/admin/api-keys/  # API Key yönetim UI
+```
+
+---
+
 ## 📁 Dosya Yapısı
 
 ```
@@ -244,6 +306,8 @@ sonbirsoz-saas/
 │   │   │   │   ├── billing/       # YENİ
 │   │   │   │   ├── theme/         # YENİ
 │   │   │   │   ├── users/         # YENİ
+│   │   │   │   ├── api-keys/      # YENİ (Phase 5)
+│   │   │   │   ├── webhooks/      # YENİ (Phase 5)
 │   │   │   │   └── ...
 │   │   │   ├── superadmin/   # Platform APIs
 │   │   │   │   ├── stats/         # YENİ
@@ -254,6 +318,11 @@ sonbirsoz-saas/
 │   │   │   │   └── system/        # YENİ
 │   │   │   └── tenant/       # Public tenant APIs
 │   │   │       └── theme/         # YENİ
+│   │   ├── api/v1/           # Public REST API (Phase 5)
+│   │   │   ├── articles/
+│   │   │   ├── categories/
+│   │   │   ├── authors/
+│   │   │   └── media/
 │   │   ├── invite/           # Davet kabul sayfası
 │   │   └── superadmin-giris/ # Super admin login
 │   ├── components/
@@ -272,6 +341,11 @@ sonbirsoz-saas/
 │   │   │   ├── colors.ts
 │   │   │   ├── provider.tsx
 │   │   │   └── presets.ts
+│   │   ├── api/              # API utilities (Phase 5)
+│   │   │   ├── keys.ts
+│   │   │   ├── middleware.ts
+│   │   │   ├── rate-limit.ts
+│   │   │   └── webhooks.ts
 │   │   ├── auth.ts
 │   │   ├── db.ts
 │   │   └── ...
@@ -344,6 +418,42 @@ model UsageRecord {
   period    DateTime // Ay başı
   
   @@unique([tenantId, metric, period])
+}
+
+// API Anahtarları (Phase 5)
+model ApiKey {
+  id          String    @id @default(cuid())
+  tenantId    String
+  name        String    // "Mobile App", "WordPress Plugin"
+  key         String    @unique // sbs_live_xxx
+  keyPrefix   String    // İlk 13 karakter
+  scopes      String[]  // ["articles:read", "articles:write"]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+}
+
+// Webhook Tanımları (Phase 5)
+model Webhook {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  url         String
+  events      String[] // ["article.published", "comment.created"]
+  secret      String   // HMAC imzalama için
+  isActive    Boolean  @default(true)
+  failCount   Int      @default(0)
+}
+
+// Webhook Gönderim Geçmişi (Phase 5)
+model WebhookDelivery {
+  id           String   @id @default(cuid())
+  webhookId    String
+  event        String
+  payload      Json
+  statusCode   Int?
+  success      Boolean  @default(false)
+  duration     Int?     // ms
 }
 ```
 
@@ -423,18 +533,27 @@ enum UserRole {
 |--------|----------|----------|
 | GET | `/theme` | Tenant tema bilgisi |
 
+### Public REST API (`/api/v1/`) - Enterprise Plan
+
+> **Not:** Bu API'ye erişim için API Key gereklidir. Header: `Authorization: Bearer sbs_live_xxx`
+
+| Method | Endpoint | Scope | Açıklama |
+|--------|----------|-------|----------|
+| GET | `/articles` | articles:read | Makale listesi |
+| POST | `/articles` | articles:write | Makale oluştur |
+| GET | `/articles/[id]` | articles:read | Makale detayı |
+| PATCH | `/articles/[id]` | articles:write | Makale güncelle |
+| DELETE | `/articles/[id]` | articles:delete | Makale sil |
+| GET | `/categories` | categories:read | Kategori listesi |
+| POST | `/categories` | categories:write | Kategori oluştur |
+| GET | `/authors` | authors:read | Yazar listesi |
+| POST | `/authors` | authors:write | Yazar oluştur |
+| GET | `/media` | media:read | Medya listesi |
+| POST | `/media` | media:write | Medya kaydet |
+
 ---
 
 ## ⚠️ Eksik Kalan Kısımlar
-
-### Phase 5: API & Entegrasyonlar (Yapılmadı)
-
-- [ ] Public REST API (`/api/v1/`)
-- [ ] API Key oluşturma ve yönetimi
-- [ ] Rate limiting (plan bazlı)
-- [ ] API documentation (OpenAPI/Swagger)
-- [ ] Webhook sistemi
-- [ ] SDK'lar (JavaScript, Python)
 
 ### Phase 6: Gelişmiş Özellikler (Yapılmadı)
 
@@ -453,6 +572,7 @@ enum UserRole {
 - [ ] **Row-Level Security:** PostgreSQL RLS henüz aktif değil
 - [ ] **Audit Logging:** Kullanıcı aksiyonları loglanmıyor
 - [ ] **GDPR Uyumluluğu:** Veri silme/export özellikleri
+- [ ] **API Documentation:** OpenAPI/Swagger dokümantasyonu
 
 ---
 
@@ -631,6 +751,25 @@ export default function Layout({ children }) {
 1. **Hydration Warning:** Admin layout'ta minor hydration uyarısı var, fonksiyonelliği etkilemiyor
 2. **ArticleEmbedding:** pgvector extension gerektiriyor, şu an devre dışı
 3. **Import Service:** `importSonbirsozArticles` henüz tenant-aware değil
+
+### API Kullanım Örneği (Phase 5)
+
+```bash
+# API Key ile makale listesi çekme
+curl -X GET "https://api.sonbirsoz-saas.com/api/v1/articles?page=1&limit=10" \
+  -H "Authorization: Bearer sbs_live_xxxxxxxxxxxxxxxxxxxx"
+
+# Yeni makale oluşturma
+curl -X POST "https://api.sonbirsoz-saas.com/api/v1/articles" \
+  -H "Authorization: Bearer sbs_live_xxxxxxxxxxxxxxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Yeni Makale",
+    "content": "Makale içeriği...",
+    "categoryId": "category_id",
+    "status": "DRAFT"
+  }'
+```
 
 ### Test Hesapları (Development)
 
