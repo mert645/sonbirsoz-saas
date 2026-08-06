@@ -232,6 +232,13 @@ model User {
   emailVerified DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  
+  // Security fields
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  passwordChangedAt   DateTime?
 
   tenants          TenantUser[]
   articles         Article[]
@@ -239,6 +246,8 @@ model User {
   sessions         Session[]
   accounts         Account[]
   editorialActions EditorialAction[]
+  passwordHistory  PasswordHistory[]
+  auditLogs        AuditLog[]
 
   @@map("users")
 }
@@ -740,4 +749,42 @@ model WebhookDelivery {
 
   @@index([webhookId, createdAt(sort: Desc)])
   @@map("webhook_deliveries")
+}
+
+// ─── SECURITY & AUDIT ───
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String   // LOGIN, LOGOUT, ARTICLE_CREATE, etc.
+  severity     String   @default("INFO") // INFO, WARNING, ERROR, CRITICAL
+  userId       String?
+  userEmail    String?
+  tenantId     String?
+  resourceType String?  // "article", "user", "tenant"
+  resourceId   String?
+  ipAddress    String?
+  userAgent    String?
+  details      Json     @default("{}")
+  success      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([action, createdAt(sort: Desc)])
+  @@index([severity, createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+model PasswordHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("password_history")
 }

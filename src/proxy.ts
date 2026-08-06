@@ -8,6 +8,39 @@ import { CATEGORIES } from "@/lib/utils/constants";
 const ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "EDITOR", "AUTHOR"];
 
 /**
+ * Güvenlik header'larını response'a ekler
+ */
+function addSecurityHeaders(response: NextResponse): NextResponse {
+  // XSS koruması
+  response.headers.set("X-XSS-Protection", "1; mode=block");
+  
+  // Clickjacking koruması
+  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  
+  // MIME type sniffing koruması
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  
+  // Referrer policy
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  
+  // Permissions policy
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+  );
+  
+  // HSTS (production'da aktif)
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains; preload"
+    );
+  }
+  
+  return response;
+}
+
+/**
  * Eski sonbirsoz.com kök seviye haber URL'lerini (/haber-slug) yeni
  * /kategori/haber-slug yapısına 301 yönlendirmek için, bu tek-segment yolların
  * ATLANMASI gereken bilinen ilk-segment değerleri. Bunlar gerçek sayfalardır.
@@ -116,6 +149,14 @@ const RATE_RULES: { prefix: string; limit: number; methods?: string[] }[] = [
   { prefix: "/api/search", limit: 60 },
   // AI arama (Bedrock maliyeti) — sıkı limit
   { prefix: "/api/ai-search", limit: 10 },
+  // Admin API'ler için genel limit
+  { prefix: "/api/admin", limit: 100 },
+  // Super Admin API'ler
+  { prefix: "/api/superadmin", limit: 50 },
+  // Public API (v1) - plan bazlı limit ayrıca uygulanır
+  { prefix: "/api/v1", limit: 200 },
+  // Invite kabul
+  { prefix: "/api/invite", limit: 10, methods: ["POST"] },
 ];
 
 function applyRateLimit(request: NextRequest): NextResponse | null {
@@ -167,6 +208,9 @@ export async function proxy(request: NextRequest) {
   if (tenantSlug) {
     response.headers.set("x-tenant-slug", tenantSlug);
   }
+  
+  // Güvenlik header'larını ekle
+  addSecurityHeaders(response);
 
   // API rate limiting (yalnızca eşleşen hassas yollar)
   if (pathname.startsWith("/api/")) {

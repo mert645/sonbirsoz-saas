@@ -3,17 +3,21 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireEditor, makeSlug } from "@/lib/data/article-mutations";
 import { requireTenantId } from "@/lib/tenant";
+import { sanitizeInput, containsXss, containsSqlInjection } from "@/lib/security/sanitize";
 
 const updateSchema = z.object({
-  name: z.string().min(1).optional(),
-  slug: z.string().optional(),
+  name: z.string().min(1).max(100).optional(),
+  slug: z.string().max(200).optional(),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-  description: z.string().nullable().optional(),
-  icon: z.string().nullable().optional(),
-  parentId: z.string().nullable().optional(),
-  order: z.number().int().min(0).optional(),
+  description: z.string().max(500).nullable().optional(),
+  icon: z.string().max(50).nullable().optional(),
+  parentId: z.string().max(50).nullable().optional(),
+  order: z.number().int().min(0).max(1000).optional(),
   isActive: z.boolean().optional(),
 });
+
+// ID format validation (CUID)
+const idSchema = z.string().regex(/^[a-z0-9]{20,30}$/i, "Geçersiz ID formatı");
 
 export async function PATCH(
   request: NextRequest,
@@ -26,8 +30,18 @@ export async function PATCH(
 
   const tenantId = await requireTenantId();
   const { id } = await params;
+  
+  // ID validation
+  const idValidation = idSchema.safeParse(id);
+  if (!idValidation.success) {
+    return NextResponse.json({ error: "Geçersiz kategori ID" }, { status: 400 });
+  }
 
   const body = await request.json().catch(() => null);
+  if (!body) {
+    return NextResponse.json({ error: "Geçersiz JSON" }, { status: 400 });
+  }
+  
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -36,18 +50,28 @@ export async function PATCH(
     );
   }
 
+  // XSS ve SQL injection kontrolü
+  const { name, slug: rawSlug, description } = parsed.data;
+  if (name && (containsXss(name) || containsSqlInjection(name))) {
+    return NextResponse.json({ error: "Geçersiz karakterler tespit edildi" }, { status: 400 });
+  }
+  if (description && (containsXss(description) || containsSqlInjection(description))) {
+    return NextResponse.json({ error: "Geçersiz karakterler tespit edildi" }, { status: 400 });
+  }
+
   const existing = await prisma.category.findFirst({ where: { id, tenantId } });
   if (!existing) {
     return NextResponse.json({ error: "Kategori bulunamadı." }, { status: 404 });
   }
 
-  const { slug: rawSlug, name, ...rest } = parsed.data;
+  const { slug: _, name: sanitizedName, description: desc, ...rest } = parsed.data;
 
   const data: Record<string, unknown> = { ...rest };
-  if (name !== undefined) data.name = name;
+  if (sanitizedName !== undefined) data.name = sanitizeInput(sanitizedName);
+  if (desc !== undefined) data.description = desc ? sanitizeInput(desc) : null;
 
   if (rawSlug !== undefined) {
-    const baseSlug = makeSlug(rawSlug);
+    const baseSlug = makeSlug(sanitizeInput(rawSlug));
     let slug = baseSlug || `kategori-${Date.now()}`;
     let n = 1;
     while (true) {
@@ -56,8 +80,8 @@ export async function PATCH(
       slug = `${baseSlug}-${n++}`;
     }
     data.slug = slug;
-  } else if (name !== undefined && name !== existing.name) {
-    const baseSlug = makeSlug(name);
+  } else if (sanitizedName !== undefined && sanitizedName !== existing.name) {
+    const baseSlug = makeSlug(sanitizeInput(sanitizedName));
     let slug = baseSlug || `kategori-${Date.now()}`;
     let n = 1;
     while (true) {
@@ -88,6 +112,12 @@ export async function DELETE(
 
   const tenantId = await requireTenantId();
   const { id } = await params;
+  
+  // ID validation
+  const idValidation = idSchema.safeParse(id);
+  if (!idValidation.success) {
+    return NextResponse.json({ error: "Geçersiz kategori ID" }, { status: 400 });
+  }
 
   const existing = await prisma.category.findFirst({
     where: { id, tenantId },
