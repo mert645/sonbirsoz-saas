@@ -7,14 +7,15 @@ Bu döküman, SonBirSöz SaaS platformunda yapılan geliştirmelerin manuel olar
 ## İçindekiler
 
 1. [Ön Hazırlık](#1-ön-hazırlık)
-2. [Güvenlik Testleri](#2-güvenlik-testleri)
-3. [API Dokümantasyonu Testi](#3-api-dokümantasyonu-testi)
-4. [GDPR Uyumluluk Testleri](#4-gdpr-uyumluluk-testleri)
-5. [Email Şablonları Testi](#5-email-şablonları-testi)
-6. [Çoklu Dil (i18n) Testi](#6-çoklu-dil-i18n-testi)
-7. [Public Site Testi](#7-public-site-testi)
-8. [Admin Panel Testleri](#8-admin-panel-testleri)
-9. [Super Admin Panel Testleri](#9-super-admin-panel-testleri)
+2. [Production Modda Test](#2-production-modda-test)
+3. [Güvenlik Testleri](#3-güvenlik-testleri)
+4. [API Dokümantasyonu Testi](#4-api-dokümantasyonu-testi)
+5. [GDPR Uyumluluk Testleri](#5-gdpr-uyumluluk-testleri)
+6. [Email Şablonları Testi](#6-email-şablonları-testi)
+7. [Çoklu Dil (i18n) Testi](#7-çoklu-dil-i18n-testi)
+8. [Public Site Testi](#8-public-site-testi)
+9. [Admin Panel Testleri](#9-admin-panel-testleri)
+10. [Super Admin Panel Testleri](#10-super-admin-panel-testleri)
 
 ---
 
@@ -26,7 +27,7 @@ Bu döküman, SonBirSöz SaaS platformunda yapılan geliştirmelerin manuel olar
 - PostgreSQL veritabanı bağlantısı (Neon veya local)
 - `.env.local` dosyası yapılandırılmış olmalı
 
-### 1.2 Projeyi Başlatma
+### 1.2 Projeyi Başlatma (Development)
 
 ```bash
 # Proje klasörüne git
@@ -57,9 +58,122 @@ npm run dev
 
 ---
 
-## 2. Güvenlik Testleri
+## 2. Production Modda Test
 
-### 2.1 Hesap Kilitleme Testi
+Production modu, uygulamanın gerçek ortamda nasıl çalışacağını simüle eder. Development modundan farklı olarak optimize edilmiş kod çalışır.
+
+### 2.1 Production Build Oluşturma
+
+```bash
+# Proje klasörüne git
+cd D:\WORKAREA\PROJECTS\sonbirsoz-saas
+
+# Önce mevcut node işlemlerini durdur (Windows)
+taskkill /F /IM node.exe
+
+# Production build oluştur
+npm run build
+```
+
+**Beklenen Çıktı:**
+```
+✓ Compiled successfully
+✓ Generating static pages (93/93)
+✓ Finalizing page optimization
+```
+
+**Olası Hatalar ve Çözümleri:**
+
+| Hata | Çözüm |
+|------|-------|
+| `EADDRINUSE: address already in use` | `taskkill /F /IM node.exe` komutu ile tüm node işlemlerini durdurun |
+| `TypeScript errors` | `npm run build` çıktısındaki hataları inceleyin |
+| `Module not found` | `npm install` komutunu tekrar çalıştırın |
+
+### 2.2 Production Sunucusunu Başlatma
+
+```bash
+# Production sunucusunu başlat
+npm run start
+```
+
+**Beklenen Çıktı:**
+```
+▲ Next.js 16.3.0
+- Local:         http://localhost:3000
+- Network:       http://192.168.x.x:3000
+✓ Ready in 196ms
+```
+
+### 2.3 Production vs Development Farkları
+
+| Özellik | Development | Production |
+|---------|-------------|------------|
+| Hot Reload | ✅ Aktif | ❌ Yok |
+| Hata Detayları | ✅ Detaylı | ❌ Genel mesaj |
+| Performans | Yavaş | Optimize |
+| Source Maps | ✅ Var | ❌ Yok |
+| CSP Header | Gevşek | Sıkı |
+| Cache | Devre dışı | Aktif |
+
+### 2.4 Production Modda Hızlı Kontrol Listesi
+
+Sunucu başladıktan sonra şu sayfaları kontrol edin:
+
+| Sayfa | URL | Beklenen Durum |
+|-------|-----|----------------|
+| Ana Sayfa | http://localhost:3000 | ✅ Yüklenmeli |
+| Super Admin Giriş | http://localhost:3000/superadmin-giris | ✅ Form görünmeli |
+| Admin Giriş | http://localhost:3000/admin/giris | ✅ Form görünmeli |
+| API Docs | http://localhost:3000/api-docs | ✅ Swagger UI görünmeli |
+| Health Check | http://localhost:3000/api/superadmin/system | ✅ JSON yanıt (auth gerekli) |
+
+### 2.5 Production Modda Giriş Testi
+
+**Super Admin Girişi:**
+
+1. `http://localhost:3000/superadmin-giris` adresine git
+2. E-posta: `superadmin@sonbirsoz-saas.com`
+3. Şifre: `admin123`
+4. "Giriş Yap" butonuna tıkla
+
+**Beklenen Sonuç:**
+- `/superadmin/dashboard` sayfasına yönlendirilmeli
+- Dashboard istatistikleri görünmeli
+
+**Admin Girişi:**
+
+1. `http://localhost:3000/admin/giris` adresine git
+2. E-posta: `admin@demo.sonbirsoz.com`
+3. Şifre: `demo-password-123`
+4. "Giriş Yap" butonuna tıkla
+
+**Beklenen Sonuç:**
+- `/admin/dashboard` sayfasına yönlendirilmeli
+- Tenant dashboard görünmeli
+
+### 2.6 Production Hata Ayıklama
+
+Eğer bir sayfa çalışmıyorsa:
+
+1. **Tarayıcı Console'u kontrol edin** (F12 → Console)
+2. **Network sekmesini kontrol edin** (F12 → Network)
+3. **Terminal çıktısını kontrol edin** (sunucunun çalıştığı terminal)
+
+**Yaygın Production Hataları:**
+
+| Belirti | Olası Sebep | Çözüm |
+|---------|-------------|-------|
+| Beyaz ekran | JavaScript hatası | Console'u kontrol edin |
+| 500 hatası | Sunucu hatası | Terminal loglarını kontrol edin |
+| 404 hatası | Sayfa bulunamadı | URL'i kontrol edin |
+| Yavaş yükleme | Veritabanı bağlantısı | `.env.local` DATABASE_URL kontrol edin |
+
+---
+
+## 3. Güvenlik Testleri
+
+### 3.1 Hesap Kilitleme Testi
 
 **Amaç:** 5 başarısız giriş denemesinden sonra hesabın kilitlenmesini test etmek.
 
@@ -82,7 +196,7 @@ UPDATE users SET "failedLoginAttempts" = 0, "lockedUntil" = NULL
 WHERE email = 'superadmin@sonbirsoz-saas.com';
 ```
 
-### 2.2 Rate Limiting Testi
+### 3.2 Rate Limiting Testi
 
 **Amaç:** API isteklerinin hız sınırlamasını test etmek.
 
@@ -107,7 +221,7 @@ for(let i = 0; i < 15; i++) {
 - İlk 10 istek normal yanıt almalı
 - 11. istekten itibaren `429 Too Many Requests` hatası alınmalı
 
-### 2.3 XSS Koruması Testi
+### 3.3 XSS Koruması Testi
 
 **Amaç:** Zararlı script girişlerinin engellendiğini test etmek.
 
@@ -123,7 +237,7 @@ for(let i = 0; i < 15; i++) {
 - "Geçersiz karakterler tespit edildi" hatası görülmeli
 - Kategori kaydedilmemeli
 
-### 2.4 Güvenlik Header'ları Testi
+### 3.4 Güvenlik Header'ları Testi
 
 **Amaç:** HTTP güvenlik header'larının doğru ayarlandığını kontrol etmek.
 
@@ -145,9 +259,9 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 ---
 
-## 3. API Dokümantasyonu Testi
+## 4. API Dokümantasyonu Testi
 
-### 3.1 Swagger UI Erişimi
+### 4.1 Swagger UI Erişimi
 
 **Amaç:** API dokümantasyonunun görüntülenebildiğini test etmek.
 
@@ -163,7 +277,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
   - Authors
   - Media
 
-### 3.2 OpenAPI Spec Erişimi
+### 4.2 OpenAPI Spec Erişimi
 
 **Amaç:** OpenAPI JSON dosyasının erişilebilir olduğunu test etmek.
 
@@ -175,7 +289,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 - JSON formatında OpenAPI spesifikasyonu görülmeli
 - `openapi: "3.0.3"` versiyonu görülmeli
 
-### 3.3 API Endpoint Testi (Swagger UI üzerinden)
+### 4.3 API Endpoint Testi (Swagger UI üzerinden)
 
 **Adımlar:**
 
@@ -190,9 +304,9 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 
 ---
 
-## 4. GDPR Uyumluluk Testleri
+## 5. GDPR Uyumluluk Testleri
 
-### 4.1 Kullanıcı Verisi Export Testi
+### 5.1 Kullanıcı Verisi Export Testi
 
 **Amaç:** Kullanıcının kendi verilerini indirebilmesini test etmek.
 
@@ -216,7 +330,7 @@ fetch('/api/admin/gdpr/export')
   - `comments`: Yapılan yorumlar
   - `auditLogs`: Aktivite logları
 
-### 4.2 Super Admin - Tenant Verisi Export
+### 5.2 Super Admin - Tenant Verisi Export
 
 **Amaç:** Super Admin'in herhangi bir tenant'ın verilerini export edebilmesini test etmek.
 
@@ -250,9 +364,9 @@ fetch('/api/superadmin/tenants')
 
 ---
 
-## 5. Email Şablonları Testi
+## 6. Email Şablonları Testi
 
-### 5.1 Email Şablonlarını Görüntüleme
+### 6.1 Email Şablonlarını Görüntüleme
 
 Email şablonları henüz bir önizleme sayfası olmadığı için, kod üzerinden test edilebilir.
 
@@ -328,9 +442,9 @@ export async function GET(request: Request) {
 
 ---
 
-## 6. Çoklu Dil (i18n) Testi
+## 7. Çoklu Dil (i18n) Testi
 
-### 6.1 Dil Değiştirme Bileşeni Testi
+### 7.1 Dil Değiştirme Bileşeni Testi
 
 i18n altyapısı hazır ancak henüz UI'a entegre edilmedi. Test için:
 
@@ -351,14 +465,14 @@ import('@/lib/i18n/translations').then(({ t, formatRelativeTime }) => {
 });
 ```
 
-### 6.2 Desteklenen Diller
+### 7.2 Desteklenen Diller
 
 | Dil | Kod | Bayrak |
 |-----|-----|--------|
 | Türkçe | tr | 🇹🇷 |
 | English | en | 🇬🇧 |
 
-### 6.3 Çeviri Anahtarları
+### 7.3 Çeviri Anahtarları
 
 Mevcut çeviri kategorileri:
 - `common`: Genel butonlar ve etiketler
@@ -372,9 +486,9 @@ Mevcut çeviri kategorileri:
 
 ---
 
-## 7. Public Site Testi
+## 8. Public Site Testi
 
-### 7.1 Ana Sayfa Testi
+### 8.1 Ana Sayfa Testi
 
 **Adımlar:**
 
@@ -393,7 +507,7 @@ Mevcut çeviri kategorileri:
 ```
 Ve `http://demo.localhost:3000` adresini kullanın.
 
-### 7.2 Kategori Sayfası Testi
+### 8.2 Kategori Sayfası Testi
 
 **Adımlar:**
 
@@ -405,7 +519,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 - O kategorideki makaleler listelenmeli
 - Sayfalama (pagination) çalışmalı
 
-### 7.3 Makale Detay Sayfası Testi
+### 8.3 Makale Detay Sayfası Testi
 
 **Adımlar:**
 
@@ -419,7 +533,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 - Paylaşım butonları görülmeli (Facebook, X, LinkedIn)
 - İlgili haberler görülmeli
 
-### 7.4 Arama Sayfası Testi
+### 8.4 Arama Sayfası Testi
 
 **Adımlar:**
 
@@ -434,9 +548,9 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 
 ---
 
-## 8. Admin Panel Testleri
+## 9. Admin Panel Testleri
 
-### 8.1 Dashboard Testi
+### 9.1 Dashboard Testi
 
 **Adımlar:**
 
@@ -451,7 +565,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
   - Aktif kullanıcı sayısı
 - Son aktiviteler listesi görülmeli
 
-### 8.2 API Anahtarları Testi
+### 9.2 API Anahtarları Testi
 
 **Adımlar:**
 
@@ -461,7 +575,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 - Enterprise plan değilse: "Bu özellik Enterprise planında kullanılabilir" mesajı
 - Enterprise plan ise: API anahtarları listesi ve yeni anahtar oluşturma formu
 
-### 8.3 Tema Ayarları Testi
+### 9.3 Tema Ayarları Testi
 
 **Adımlar:**
 
@@ -475,7 +589,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 - Kaydetme başarılı mesajı görülmeli
 - Public site yeni tema ile görülmeli
 
-### 8.4 Plan & Kullanım Testi
+### 9.4 Plan & Kullanım Testi
 
 **Adımlar:**
 
@@ -492,9 +606,9 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 
 ---
 
-## 9. Super Admin Panel Testleri
+## 10. Super Admin Panel Testleri
 
-### 9.1 Super Admin Girişi
+### 10.1 Super Admin Girişi
 
 **Adımlar:**
 
@@ -506,7 +620,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 **Beklenen Sonuç:**
 - Başarılı giriş sonrası `/superadmin/dashboard` sayfasına yönlendirilmeli
 
-### 9.2 Dashboard Testi
+### 10.2 Dashboard Testi
 
 **Adımlar:**
 
@@ -521,7 +635,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 - Son eklenen tenant'lar listesi
 - Plan dağılımı grafiği
 
-### 9.3 Tenant Yönetimi Testi
+### 10.3 Tenant Yönetimi Testi
 
 **Adımlar:**
 
@@ -535,7 +649,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 - Arama ve filtreleme çalışmalı
 - Tenant detayında tüm bilgiler görülmeli
 
-### 9.4 Yeni Tenant Oluşturma Testi
+### 10.4 Yeni Tenant Oluşturma Testi
 
 **Adımlar:**
 
@@ -552,7 +666,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 - Admin kullanıcı oluşturulmalı
 - Seçilen kategoriler eklenmeli
 
-### 9.5 Faturalama Testi
+### 10.5 Faturalama Testi
 
 **Adımlar:**
 
@@ -565,7 +679,7 @@ Ve `http://demo.localhost:3000` adresini kullanın.
 - Plan dağılımı
 - Tenant bazlı kullanım tablosu
 
-### 9.6 Sistem Durumu Testi
+### 10.6 Sistem Durumu Testi
 
 **Adımlar:**
 
@@ -609,24 +723,44 @@ npx prisma studio
 
 Her test sonrası bu listeyi işaretleyin:
 
+### Production Build
+- [ ] `npm run build` başarılı
+- [ ] `npm run start` başarılı
+- [ ] Ana sayfa yükleniyor
+- [ ] Super Admin giriş çalışıyor
+- [ ] Admin giriş çalışıyor
+
+### Güvenlik
 - [ ] Güvenlik - Hesap Kilitleme
 - [ ] Güvenlik - Rate Limiting
 - [ ] Güvenlik - XSS Koruması
 - [ ] Güvenlik - Header'lar
+
+### API & Dokümantasyon
 - [ ] API Docs - Swagger UI
 - [ ] API Docs - OpenAPI JSON
+
+### GDPR & Email
 - [ ] GDPR - Veri Export
 - [ ] GDPR - Super Admin Export
 - [ ] Email - Şablon Önizleme
+
+### i18n
 - [ ] i18n - Dil Değiştirme
+
+### Public Site
 - [ ] Public - Ana Sayfa
 - [ ] Public - Kategori Sayfası
 - [ ] Public - Makale Detay
 - [ ] Public - Arama
+
+### Admin Panel
 - [ ] Admin - Dashboard
 - [ ] Admin - API Anahtarları
 - [ ] Admin - Tema
 - [ ] Admin - Plan & Kullanım
+
+### Super Admin Panel
 - [ ] Super Admin - Giriş
 - [ ] Super Admin - Dashboard
 - [ ] Super Admin - Tenant Yönetimi
