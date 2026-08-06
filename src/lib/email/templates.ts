@@ -1,127 +1,501 @@
-import { SITE_NAME, SITE_URL } from "@/lib/utils/constants";
-
 /**
- * E-posta HTML şablonları — inline stil (e-posta istemcileri harici CSS desteklemez).
- * Marka rengi: #c00000 (Son Bir Söz kırmızısı).
+ * Email Template System
+ * HTML email şablonları (gönderim hariç)
  */
 
-const BRAND = "#c00000";
+export interface EmailTemplateData {
+  [key: string]: string | number | boolean | undefined;
+}
 
-function layout(content: string, unsubscribeUrl?: string): string {
-  return `<!DOCTYPE html>
+/**
+ * Temel email layout'u
+ */
+function baseLayout(content: string, options: { 
+  previewText?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+  siteName?: string;
+  footerText?: string;
+} = {}): string {
+  const {
+    previewText = "",
+    primaryColor = "#4F46E5",
+    logoUrl,
+    siteName = "SonBirSöz",
+    footerText = "Bu email otomatik olarak gönderilmiştir.",
+  } = options;
+
+  return `
+<!DOCTYPE html>
 <html lang="tr">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
-    <tr><td align="center">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
-        <tr>
-          <td style="background:${BRAND};padding:18px 28px;">
-            <a href="${SITE_URL}" style="color:#ffffff;font-size:20px;font-weight:800;text-decoration:none;letter-spacing:-0.3px;">${SITE_NAME}</a>
-          </td>
-        </tr>
-        <tr><td style="padding:28px;">${content}</td></tr>
-        <tr>
-          <td style="padding:20px 28px;border-top:1px solid #e4e4e7;">
-            <p style="margin:0;color:#71717a;font-size:12px;line-height:1.6;">
-              Bu e-postayı ${SITE_NAME} bültenine abone olduğunuz için alıyorsunuz.
-              ${unsubscribeUrl ? `<br><a href="${unsubscribeUrl}" style="color:#71717a;text-decoration:underline;">Abonelikten çık</a>` : ""}
-              <br>© ${new Date().getFullYear()} ${SITE_NAME} — <a href="${SITE_URL}" style="color:#71717a;">${SITE_URL.replace("https://", "")}</a>
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>${siteName}</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      background-color: #f3f4f6;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    .header {
+      background-color: ${primaryColor};
+      padding: 24px;
+      text-align: center;
+    }
+    .header img {
+      max-height: 40px;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 32px 24px;
+    }
+    .button {
+      display: inline-block;
+      background-color: ${primaryColor};
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 16px 0;
+    }
+    .button:hover {
+      opacity: 0.9;
+    }
+    .footer {
+      padding: 24px;
+      text-align: center;
+      color: #6b7280;
+      font-size: 12px;
+    }
+    .divider {
+      border-top: 1px solid #e5e7eb;
+      margin: 24px 0;
+    }
+    .info-box {
+      background-color: #f3f4f6;
+      border-radius: 6px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .code {
+      font-family: monospace;
+      background-color: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    @media only screen and (max-width: 600px) {
+      .container {
+        padding: 10px;
+      }
+      .content {
+        padding: 24px 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  ${previewText ? `<div style="display:none;max-height:0;overflow:hidden;">${previewText}</div>` : ""}
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        ${logoUrl ? `<img src="${logoUrl}" alt="${siteName}">` : `<h1>${siteName}</h1>`}
+      </div>
+      <div class="content">
+        ${content}
+      </div>
+      <div class="footer">
+        <p>${footerText}</p>
+        <p>&copy; ${new Date().getFullYear()} ${siteName}. Tüm hakları saklıdır.</p>
+      </div>
+    </div>
+  </div>
 </body>
-</html>`;
+</html>
+  `.trim();
 }
 
-export function welcomeEmail(name: string | null, unsubscribeUrl: string): {
-  subject: string;
-  html: string;
-  text: string;
-} {
-  const greeting = name ? `Merhaba ${name},` : "Merhaba,";
-  return {
-    subject: `${SITE_NAME} bültenine hoş geldiniz`,
-    html: layout(
-      `<h1 style="margin:0 0 14px;font-size:22px;color:#18181b;">Aramıza hoş geldiniz 👋</h1>
-       <p style="margin:0 0 12px;color:#3f3f46;font-size:15px;line-height:1.7;">${greeting}</p>
-       <p style="margin:0 0 12px;color:#3f3f46;font-size:15px;line-height:1.7;">
-         ${SITE_NAME} bültenine aboneliğiniz başarıyla oluşturuldu. Günün öne çıkan haberlerini
-         ve önemli son dakika gelişmelerini e-posta kutunuza göndereceğiz.
-       </p>
-       <p style="margin:20px 0 0;">
-         <a href="${SITE_URL}" style="display:inline-block;background:${BRAND};color:#ffffff;padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Güncel haberlere göz atın</a>
-       </p>`,
-      unsubscribeUrl
-    ),
-    text: `${greeting}\n\n${SITE_NAME} bültenine aboneliğiniz oluşturuldu. Güncel haberler: ${SITE_URL}\n\nAbonelikten çıkmak için: ${unsubscribeUrl}`,
+/**
+ * Davet emaili şablonu
+ */
+export function invitationEmail(data: {
+  inviteeName: string;
+  inviterName: string;
+  tenantName: string;
+  role: string;
+  inviteUrl: string;
+  expiresAt: string;
+  siteName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+}): string {
+  const roleNames: Record<string, string> = {
+    OWNER: "Sahip",
+    ADMIN: "Yönetici",
+    EDITOR: "Editör",
+    AUTHOR: "Yazar",
   };
-}
 
-export interface BulletinArticle {
-  title: string;
-  spot: string | null;
-  url: string;
-  category: string;
-  image?: string | null;
-}
+  const content = `
+    <h2 style="margin-top: 0;">Merhaba${data.inviteeName ? ` ${data.inviteeName}` : ""},</h2>
+    
+    <p><strong>${data.inviterName}</strong> sizi <strong>${data.tenantName}</strong> ekibine 
+    <strong>${roleNames[data.role] || data.role}</strong> olarak davet etti.</p>
+    
+    <p>Daveti kabul etmek için aşağıdaki butona tıklayın:</p>
+    
+    <div style="text-align: center;">
+      <a href="${data.inviteUrl}" class="button">Daveti Kabul Et</a>
+    </div>
+    
+    <div class="info-box">
+      <p style="margin: 0;"><strong>Önemli:</strong> Bu davet <strong>${data.expiresAt}</strong> tarihine kadar geçerlidir.</p>
+    </div>
+    
+    <p style="color: #6b7280; font-size: 14px;">
+      Eğer bu daveti beklemiyorsanız, bu emaili görmezden gelebilirsiniz.
+    </p>
+  `;
 
-export function dailyBulletinEmail(
-  articles: BulletinArticle[],
-  unsubscribeUrl: string
-): { subject: string; html: string; text: string } {
-  const date = new Date().toLocaleDateString("tr-TR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+  return baseLayout(content, {
+    previewText: `${data.inviterName} sizi ${data.tenantName} ekibine davet etti`,
+    siteName: data.siteName,
+    primaryColor: data.primaryColor,
+    logoUrl: data.logoUrl,
   });
-
-  const rows = articles
-    .map(
-      (a) => `
-      <tr><td style="padding:14px 0;border-bottom:1px solid #f1f1f3;">
-        <p style="margin:0 0 4px;"><span style="color:${BRAND};font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">${a.category}</span></p>
-        <a href="${a.url}" style="color:#18181b;font-size:16px;font-weight:700;text-decoration:none;line-height:1.4;">${a.title}</a>
-        ${a.spot ? `<p style="margin:6px 0 0;color:#52525b;font-size:13px;line-height:1.6;">${a.spot}</p>` : ""}
-      </td></tr>`
-    )
-    .join("");
-
-  return {
-    subject: `Günün Özeti — ${date}`,
-    html: layout(
-      `<h1 style="margin:0 0 4px;font-size:22px;color:#18181b;">Günün Özeti</h1>
-       <p style="margin:0 0 16px;color:#71717a;font-size:13px;">${date}</p>
-       <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
-       <p style="margin:20px 0 0;">
-         <a href="${SITE_URL}" style="display:inline-block;background:${BRAND};color:#ffffff;padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Tüm haberler</a>
-       </p>`,
-      unsubscribeUrl
-    ),
-    text: `Günün Özeti — ${date}\n\n${articles.map((a) => `• ${a.title}\n  ${a.url}`).join("\n\n")}\n\nAbonelikten çıkmak için: ${unsubscribeUrl}`,
-  };
 }
 
-export function breakingEmail(
-  title: string,
-  spot: string | null,
-  url: string,
-  unsubscribeUrl: string
-): { subject: string; html: string; text: string } {
-  return {
-    subject: `SON DAKİKA: ${title}`,
-    html: layout(
-      `<p style="margin:0 0 10px;"><span style="display:inline-block;background:${BRAND};color:#ffffff;font-size:11px;font-weight:800;letter-spacing:0.5px;padding:4px 10px;border-radius:4px;">SON DAKİKA</span></p>
-       <h1 style="margin:0 0 12px;font-size:22px;color:#18181b;line-height:1.35;">${title}</h1>
-       ${spot ? `<p style="margin:0 0 16px;color:#3f3f46;font-size:15px;line-height:1.7;">${spot}</p>` : ""}
-       <p style="margin:16px 0 0;">
-         <a href="${url}" style="display:inline-block;background:${BRAND};color:#ffffff;padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Haberin devamını okuyun</a>
-       </p>`,
-      unsubscribeUrl
-    ),
-    text: `SON DAKİKA: ${title}\n\n${spot || ""}\n\n${url}\n\nAbonelikten çıkmak için: ${unsubscribeUrl}`,
+/**
+ * Hoş geldiniz emaili şablonu
+ */
+export function welcomeEmail(data: {
+  userName: string;
+  tenantName: string;
+  loginUrl: string;
+  siteName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+}): string {
+  const content = `
+    <h2 style="margin-top: 0;">Hoş Geldiniz, ${data.userName}!</h2>
+    
+    <p><strong>${data.tenantName}</strong> ekibine katıldığınız için teşekkür ederiz.</p>
+    
+    <p>Artık içerik oluşturabilir, düzenleyebilir ve yayınlayabilirsiniz.</p>
+    
+    <div style="text-align: center;">
+      <a href="${data.loginUrl}" class="button">Panele Git</a>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <h3>Hızlı Başlangıç</h3>
+    <ul>
+      <li>Dashboard'dan genel durumu görüntüleyin</li>
+      <li>Yeni bir makale oluşturun</li>
+      <li>Medya kütüphanesine görseller yükleyin</li>
+      <li>Ayarlardan profilinizi düzenleyin</li>
+    </ul>
+  `;
+
+  return baseLayout(content, {
+    previewText: `${data.tenantName} ekibine hoş geldiniz!`,
+    siteName: data.siteName,
+    primaryColor: data.primaryColor,
+    logoUrl: data.logoUrl,
+  });
+}
+
+/**
+ * Şifre sıfırlama emaili şablonu
+ */
+export function passwordResetEmail(data: {
+  userName: string;
+  resetUrl: string;
+  expiresIn: string;
+  ipAddress?: string;
+  siteName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+}): string {
+  const content = `
+    <h2 style="margin-top: 0;">Şifre Sıfırlama</h2>
+    
+    <p>Merhaba ${data.userName},</p>
+    
+    <p>Hesabınız için şifre sıfırlama talebinde bulunuldu.</p>
+    
+    <div style="text-align: center;">
+      <a href="${data.resetUrl}" class="button">Şifremi Sıfırla</a>
+    </div>
+    
+    <div class="info-box">
+      <p style="margin: 0;">Bu link <strong>${data.expiresIn}</strong> süreyle geçerlidir.</p>
+    </div>
+    
+    ${data.ipAddress ? `
+    <p style="color: #6b7280; font-size: 14px;">
+      Bu istek <code class="code">${data.ipAddress}</code> IP adresinden yapıldı.
+    </p>
+    ` : ""}
+    
+    <p style="color: #6b7280; font-size: 14px;">
+      Eğer bu talebi siz yapmadıysanız, bu emaili görmezden gelebilirsiniz. 
+      Şifreniz değişmeyecektir.
+    </p>
+  `;
+
+  return baseLayout(content, {
+    previewText: "Şifre sıfırlama talebiniz",
+    siteName: data.siteName,
+    primaryColor: data.primaryColor,
+    logoUrl: data.logoUrl,
+  });
+}
+
+/**
+ * Makale yayınlandı bildirimi
+ */
+export function articlePublishedEmail(data: {
+  authorName: string;
+  articleTitle: string;
+  articleUrl: string;
+  publishedAt: string;
+  siteName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+}): string {
+  const content = `
+    <h2 style="margin-top: 0;">Makaleniz Yayınlandı!</h2>
+    
+    <p>Merhaba ${data.authorName},</p>
+    
+    <p>Makaleniz başarıyla yayınlandı:</p>
+    
+    <div class="info-box">
+      <h3 style="margin-top: 0;">${data.articleTitle}</h3>
+      <p style="margin-bottom: 0; color: #6b7280;">Yayın tarihi: ${data.publishedAt}</p>
+    </div>
+    
+    <div style="text-align: center;">
+      <a href="${data.articleUrl}" class="button">Makaleyi Görüntüle</a>
+    </div>
+  `;
+
+  return baseLayout(content, {
+    previewText: `"${data.articleTitle}" yayınlandı`,
+    siteName: data.siteName,
+    primaryColor: data.primaryColor,
+    logoUrl: data.logoUrl,
+  });
+}
+
+/**
+ * Yeni yorum bildirimi
+ */
+export function newCommentEmail(data: {
+  authorName: string;
+  articleTitle: string;
+  commentAuthor: string;
+  commentPreview: string;
+  moderationUrl: string;
+  siteName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+}): string {
+  const content = `
+    <h2 style="margin-top: 0;">Yeni Yorum</h2>
+    
+    <p>Merhaba ${data.authorName},</p>
+    
+    <p><strong>"${data.articleTitle}"</strong> başlıklı makalenize yeni bir yorum yapıldı:</p>
+    
+    <div class="info-box">
+      <p style="margin: 0;"><strong>${data.commentAuthor}</strong> yazdı:</p>
+      <p style="margin-bottom: 0; font-style: italic;">"${data.commentPreview}"</p>
+    </div>
+    
+    <div style="text-align: center;">
+      <a href="${data.moderationUrl}" class="button">Yorumu İncele</a>
+    </div>
+  `;
+
+  return baseLayout(content, {
+    previewText: `${data.commentAuthor} makalenize yorum yaptı`,
+    siteName: data.siteName,
+    primaryColor: data.primaryColor,
+    logoUrl: data.logoUrl,
+  });
+}
+
+/**
+ * Abonelik durumu değişikliği
+ */
+export function subscriptionStatusEmail(data: {
+  tenantName: string;
+  adminName: string;
+  oldPlan: string;
+  newPlan: string;
+  status: "upgraded" | "downgraded" | "canceled" | "renewed";
+  effectiveDate: string;
+  billingUrl: string;
+  siteName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+}): string {
+  const statusMessages = {
+    upgraded: `Planınız <strong>${data.oldPlan}</strong>'dan <strong>${data.newPlan}</strong>'a yükseltildi.`,
+    downgraded: `Planınız <strong>${data.oldPlan}</strong>'dan <strong>${data.newPlan}</strong>'a düşürüldü.`,
+    canceled: `<strong>${data.oldPlan}</strong> planınız iptal edildi.`,
+    renewed: `<strong>${data.newPlan}</strong> planınız yenilendi.`,
   };
+
+  const content = `
+    <h2 style="margin-top: 0;">Abonelik Güncellendi</h2>
+    
+    <p>Merhaba ${data.adminName},</p>
+    
+    <p><strong>${data.tenantName}</strong> için abonelik durumunuz güncellendi:</p>
+    
+    <div class="info-box">
+      <p style="margin: 0;">${statusMessages[data.status]}</p>
+      <p style="margin-bottom: 0; color: #6b7280;">Geçerlilik: ${data.effectiveDate}</p>
+    </div>
+    
+    <div style="text-align: center;">
+      <a href="${data.billingUrl}" class="button">Fatura Detayları</a>
+    </div>
+  `;
+
+  return baseLayout(content, {
+    previewText: `${data.tenantName} abonelik durumu güncellendi`,
+    siteName: data.siteName,
+    primaryColor: data.primaryColor,
+    logoUrl: data.logoUrl,
+  });
+}
+
+/**
+ * GDPR veri export hazır bildirimi
+ */
+export function dataExportReadyEmail(data: {
+  userName: string;
+  downloadUrl: string;
+  expiresAt: string;
+  siteName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+}): string {
+  const content = `
+    <h2 style="margin-top: 0;">Veri Export'unuz Hazır</h2>
+    
+    <p>Merhaba ${data.userName},</p>
+    
+    <p>Talep ettiğiniz veri export'u hazırlandı ve indirmeye hazır.</p>
+    
+    <div style="text-align: center;">
+      <a href="${data.downloadUrl}" class="button">Verileri İndir</a>
+    </div>
+    
+    <div class="info-box">
+      <p style="margin: 0;"><strong>Önemli:</strong> Bu indirme linki <strong>${data.expiresAt}</strong> tarihine kadar geçerlidir.</p>
+    </div>
+    
+    <p style="color: #6b7280; font-size: 14px;">
+      Güvenliğiniz için, indirme linkini başkalarıyla paylaşmayın.
+    </p>
+  `;
+
+  return baseLayout(content, {
+    previewText: "Veri export'unuz indirmeye hazır",
+    siteName: data.siteName,
+    primaryColor: data.primaryColor,
+    logoUrl: data.logoUrl,
+  });
+}
+
+/**
+ * Güvenlik uyarısı emaili
+ */
+export function securityAlertEmail(data: {
+  userName: string;
+  alertType: "new_login" | "password_changed" | "suspicious_activity" | "account_locked";
+  details: string;
+  ipAddress?: string;
+  location?: string;
+  timestamp: string;
+  actionUrl?: string;
+  siteName?: string;
+  primaryColor?: string;
+  logoUrl?: string;
+}): string {
+  const alertTitles = {
+    new_login: "Yeni Giriş Tespit Edildi",
+    password_changed: "Şifreniz Değiştirildi",
+    suspicious_activity: "Şüpheli Aktivite Tespit Edildi",
+    account_locked: "Hesabınız Kilitlendi",
+  };
+
+  const content = `
+    <h2 style="margin-top: 0; color: #dc2626;">⚠️ ${alertTitles[data.alertType]}</h2>
+    
+    <p>Merhaba ${data.userName},</p>
+    
+    <p>${data.details}</p>
+    
+    <div class="info-box" style="background-color: #fef2f2; border: 1px solid #fecaca;">
+      <p style="margin: 0;"><strong>Tarih:</strong> ${data.timestamp}</p>
+      ${data.ipAddress ? `<p style="margin: 8px 0 0 0;"><strong>IP Adresi:</strong> ${data.ipAddress}</p>` : ""}
+      ${data.location ? `<p style="margin: 8px 0 0 0;"><strong>Konum:</strong> ${data.location}</p>` : ""}
+    </div>
+    
+    ${data.actionUrl ? `
+    <div style="text-align: center;">
+      <a href="${data.actionUrl}" class="button" style="background-color: #dc2626;">Hesabımı Güvenceye Al</a>
+    </div>
+    ` : ""}
+    
+    <p style="color: #6b7280; font-size: 14px;">
+      Eğer bu işlemi siz yaptıysanız, bu emaili görmezden gelebilirsiniz.
+      Aksi halde, lütfen hemen şifrenizi değiştirin.
+    </p>
+  `;
+
+  return baseLayout(content, {
+    previewText: `Güvenlik Uyarısı: ${alertTitles[data.alertType]}`,
+    siteName: data.siteName,
+    primaryColor: "#dc2626",
+    logoUrl: data.logoUrl,
+  });
 }
