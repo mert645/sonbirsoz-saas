@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { sendEmail, isEmailConfigured } from "@/lib/email/ses-client";
-import { welcomeEmail } from "@/lib/email/templates";
-import { SITE_URL } from "@/lib/utils/constants";
+import { getCurrentTenantId } from "@/lib/tenant";
 
 export async function POST(request: NextRequest) {
+  const tenantId = await getCurrentTenantId();
+  
+  if (!tenantId) {
+    return NextResponse.json(
+      { error: "Tenant bulunamadı" },
+      { status: 400 }
+    );
+  }
+
   const { email, name, categories } = await request.json();
 
   if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -17,31 +24,29 @@ export async function POST(request: NextRequest) {
   const normalized = email.trim().toLowerCase();
 
   try {
-    const existing = await prisma.newsletterSubscriber.findUnique({
-      where: { email: normalized },
+    const existing = await prisma.newsletterSubscriber.findFirst({
+      where: { tenantId, email: normalized },
       select: { id: true, isActive: true },
     });
 
-    const subscriber = await prisma.newsletterSubscriber.upsert({
-      where: { email: normalized },
-      update: {
-        isActive: true,
-        ...(name ? { name } : {}),
-        ...(Array.isArray(categories) ? { categories } : {}),
-      },
-      create: {
-        email: normalized,
-        name: name || null,
-        categories: Array.isArray(categories) ? categories : [],
-      },
-    });
-
-    // Hoş geldin maili — yalnızca yeni/yeniden aktifleşen abonelere (best-effort)
-    const isNewOrReactivated = !existing || !existing.isActive;
-    if (isNewOrReactivated && isEmailConfigured()) {
-      const unsubscribeUrl = `${SITE_URL}/api/newsletter/unsubscribe?token=${subscriber.unsubscribeToken}`;
-      const mail = welcomeEmail(subscriber.name, unsubscribeUrl);
-      sendEmail({ to: normalized, ...mail }).catch(() => {});
+    if (existing) {
+      await prisma.newsletterSubscriber.update({
+        where: { id: existing.id },
+        data: {
+          isActive: true,
+          ...(name ? { name } : {}),
+          ...(Array.isArray(categories) ? { categories } : {}),
+        },
+      });
+    } else {
+      await prisma.newsletterSubscriber.create({
+        data: {
+          tenantId,
+          email: normalized,
+          name: name || null,
+          categories: Array.isArray(categories) ? categories : [],
+        },
+      });
     }
   } catch (error) {
     console.error("Newsletter subscription failed:", error);

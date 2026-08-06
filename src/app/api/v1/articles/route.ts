@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           title: true,
           slug: true,
           spot: true,
-          imageUrl: true,
+          coverImage: true,
           status: true,
           viewCount: true,
           publishedAt: true,
@@ -88,9 +88,13 @@ export async function GET(request: NextRequest) {
           },
           tags: {
             select: {
-              id: true,
-              name: true,
-              slug: true,
+              tag: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
             },
           },
         },
@@ -184,28 +188,12 @@ export async function POST(request: NextRequest) {
         slug: finalSlug,
         spot,
         content,
-        imageUrl,
+        coverImage: imageUrl, // API'de imageUrl olarak alıp coverImage olarak kaydediyoruz
         categoryId,
         authorId,
+        userId: authorId, // API key ile oluşturulduğunda author'u user olarak da kullan
         status,
         publishedAt: status === "PUBLISHED" ? new Date() : null,
-        tags: tags?.length
-          ? {
-              connectOrCreate: tags.map((tag: string) => ({
-                where: {
-                  tenantId_slug: {
-                    tenantId: ctx.tenantId,
-                    slug: tag.toLowerCase().replace(/\s+/g, "-"),
-                  },
-                },
-                create: {
-                  tenantId: ctx.tenantId,
-                  name: tag,
-                  slug: tag.toLowerCase().replace(/\s+/g, "-"),
-                },
-              })),
-            }
-          : undefined,
       },
       include: {
         category: {
@@ -215,10 +203,37 @@ export async function POST(request: NextRequest) {
           select: { id: true, name: true, slug: true },
         },
         tags: {
-          select: { id: true, name: true, slug: true },
+          select: { tag: { select: { id: true, name: true, slug: true } } },
         },
       },
     });
+
+    // Tag'leri ayrı olarak ekle (ArticleTag ilişkisi)
+    if (tags?.length) {
+      for (const tagName of tags) {
+        const tagSlug = tagName.toLowerCase().replace(/\s+/g, "-");
+        const tag = await prisma.tag.upsert({
+          where: {
+            tenantId_slug: {
+              tenantId: ctx.tenantId,
+              slug: tagSlug,
+            },
+          },
+          create: {
+            tenantId: ctx.tenantId,
+            name: tagName,
+            slug: tagSlug,
+          },
+          update: {},
+        });
+        await prisma.articleTag.create({
+          data: {
+            articleId: article.id,
+            tagId: tag.id,
+          },
+        });
+      }
+    }
 
     return apiSuccess(article);
   } catch (error) {

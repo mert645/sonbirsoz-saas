@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { buildRssXml, getRssArticles, RSS_HEADERS, RSS_SITE } from "@/lib/seo/rss";
+import { getCurrentTenantId } from "@/lib/tenant";
 
 export const revalidate = 300;
 
@@ -12,10 +13,15 @@ export async function GET(
   const { category: raw } = await params;
   const slug = raw.replace(/\.xml$/, "");
 
+  const tenantId = await getCurrentTenantId();
+  if (!tenantId) {
+    return NextResponse.json({ error: "Tenant bulunamadı" }, { status: 404 });
+  }
+
   let categoryName = slug;
   try {
-    const category = await prisma.category.findUnique({
-      where: { slug },
+    const category = await prisma.category.findFirst({
+      where: { tenantId, slug },
       select: { name: true },
     });
     if (!category) {
@@ -26,11 +32,11 @@ export async function GET(
     // DB erişilemezse slug adıyla devam et
   }
 
-  const articles = await getRssArticles(slug);
+  const articles = await getRssArticles(slug, tenantId);
   const xml = buildRssXml({
     title: `${RSS_SITE.name} — ${categoryName}`,
     link: `${RSS_SITE.url}/rss/${slug}.xml`,
-    description: `Son Bir Söz ${categoryName} kategorisindeki en güncel haberler.`,
+    description: `${categoryName} kategorisindeki en güncel haberler.`,
     articles,
   });
   return new NextResponse(xml, { headers: RSS_HEADERS });

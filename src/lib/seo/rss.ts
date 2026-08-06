@@ -59,14 +59,17 @@ ${items}
 </rss>`;
 }
 
-export async function getRssArticles(categorySlug?: string): Promise<RssArticle[]> {
+export async function getRssArticles(categorySlug?: string, tenantId?: string): Promise<RssArticle[]> {
   try {
+    const where: Record<string, unknown> = {
+      status: "PUBLISHED",
+      publishedAt: { not: null },
+    };
+    if (tenantId) where.tenantId = tenantId;
+    if (categorySlug) where.category = { slug: categorySlug };
+
     return await prisma.article.findMany({
-      where: {
-        status: "PUBLISHED",
-        publishedAt: { not: null },
-        ...(categorySlug ? { category: { slug: categorySlug } } : {}),
-      },
+      where,
       orderBy: { publishedAt: "desc" },
       take: 50,
       select: {

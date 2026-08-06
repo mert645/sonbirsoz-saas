@@ -1,18 +1,8 @@
 import Link from "next/link";
-
-interface Tenant {
-  id: string;
-  name: string;
-  slug: string;
-  plan: string;
-  settings: {
-    siteName?: string;
-    tagline?: string;
-  } | null;
-}
+import type { TenantData } from "@/lib/tenant";
 
 interface PublicFooterProps {
-  tenant: Tenant;
+  tenant: TenantData;
 }
 
 export function PublicFooter({ tenant }: PublicFooterProps) {

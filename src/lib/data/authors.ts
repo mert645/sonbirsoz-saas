@@ -28,11 +28,15 @@ const listSelect = {
 } as const;
 
 export async function getAuthorBySlug(
-  slug: string
+  slug: string,
+  tenantId?: string
 ): Promise<AuthorProfile | null> {
   try {
-    const author = await prisma.author.findUnique({
-      where: { slug },
+    const where: { slug: string; tenantId?: string } = { slug };
+    if (tenantId) where.tenantId = tenantId;
+
+    const author = await prisma.author.findFirst({
+      where,
       include: { _count: { select: { articles: true } } },
     });
     if (!author) return null;
@@ -56,14 +60,16 @@ export async function getAuthorBySlug(
 
 export async function getArticlesByAuthor(
   slug: string,
-  { page = 1, limit = 12 }: { page?: number; limit?: number } = {}
+  { page = 1, limit = 12, tenantId }: { page?: number; limit?: number; tenantId?: string } = {}
 ): Promise<{ articles: ArticleListItem[]; total: number }> {
   try {
-    const where = {
+    const where: Record<string, unknown> = {
       status: "PUBLISHED" as const,
       publishedAt: { not: null },
       author: { slug },
     };
+    if (tenantId) where.tenantId = tenantId;
+
     const [rows, total] = await Promise.all([
       prisma.article.findMany({
         where,
@@ -80,10 +86,13 @@ export async function getArticlesByAuthor(
   }
 }
 
-export async function getActiveAuthors(limit = 8): Promise<AuthorProfile[]> {
+export async function getActiveAuthors(limit = 8, tenantId?: string): Promise<AuthorProfile[]> {
   try {
+    const where: { isActive: boolean; tenantId?: string } = { isActive: true };
+    if (tenantId) where.tenantId = tenantId;
+
     const rows = await prisma.author.findMany({
-      where: { isActive: true },
+      where,
       orderBy: { updatedAt: "desc" },
       take: limit,
       include: { _count: { select: { articles: true } } },
@@ -108,10 +117,13 @@ export async function getActiveAuthors(limit = 8): Promise<AuthorProfile[]> {
 /**
  * /yazarlar dizin sayfası: tüm aktif yazarlar, yayınlanan haber sayısına göre.
  */
-export async function getAllAuthors(): Promise<AuthorProfile[]> {
+export async function getAllAuthors(tenantId?: string): Promise<AuthorProfile[]> {
   try {
+    const where: { isActive: boolean; tenantId?: string } = { isActive: true };
+    if (tenantId) where.tenantId = tenantId;
+
     const rows = await prisma.author.findMany({
-      where: { isActive: true },
+      where,
       include: {
         _count: {
           select: { articles: { where: { status: "PUBLISHED" } } },

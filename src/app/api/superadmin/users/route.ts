@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     }
 
     if (tenantId) {
-      where.tenantUsers = {
+      where.tenants = {
         some: { tenantId },
       };
     }
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       prisma.user.findMany({
         where,
         include: {
-          tenantUsers: {
+          tenants: {
             include: {
               tenant: {
                 select: {
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
       name: user.name,
       role: user.role,
       createdAt: user.createdAt,
-      tenants: user.tenantUsers.map((tu) => ({
+      tenants: user.tenants.map((tu) => ({
         id: tu.tenant.id,
         name: tu.tenant.name,
         slug: tu.tenant.slug,

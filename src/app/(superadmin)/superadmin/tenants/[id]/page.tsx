@@ -72,11 +72,18 @@ export default function TenantDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string;
+    slug: string;
+    domain: string;
+    plan: "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
+    primaryColor: string;
+    isActive: boolean;
+  }>({
     name: "",
     slug: "",
     domain: "",
-    plan: "STARTER" as const,
+    plan: "STARTER",
     primaryColor: "#4F46E5",
     isActive: true,
   });

@@ -2,17 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getLatestArticles, getArticlesByCategory } from "@/lib/data/articles";
 import { requireEditor, createArticle } from "@/lib/data/article-mutations";
+import { getCurrentTenantId } from "@/lib/tenant";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
   const limit = Math.min(50, parseInt(searchParams.get("limit") || "20"));
   const category = searchParams.get("category");
+  const tenantId = await getCurrentTenantId();
 
   if (category) {
     const { articles, total } = await getArticlesByCategory(category, {
       page,
       limit,
+      tenantId: tenantId || undefined,
     });
     return NextResponse.json({
       data: articles,
@@ -47,6 +50,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const tenantId = await getCurrentTenantId();
+  if (!tenantId) {
+    return NextResponse.json({ error: "Tenant bulunamadı" }, { status: 400 });
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
@@ -59,6 +67,7 @@ export async function POST(request: NextRequest) {
   try {
     const article = await createArticle(user, {
       ...parsed.data,
+      tenantId,
       coverImage: parsed.data.coverImage || undefined,
     });
     return NextResponse.json(article, { status: 201 });

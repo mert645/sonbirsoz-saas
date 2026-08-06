@@ -26,10 +26,10 @@ export async function GET(
           select: { id: true, name: true, slug: true },
         },
         author: {
-          select: { id: true, name: true, slug: true, bio: true, imageUrl: true },
+          select: { id: true, name: true, slug: true, bio: true, avatar: true },
         },
         tags: {
-          select: { id: true, name: true, slug: true },
+          select: { tag: { select: { id: true, name: true, slug: true } } },
         },
       },
     });
@@ -155,7 +155,7 @@ export async function PATCH(
           select: { id: true, name: true, slug: true },
         },
         tags: {
-          select: { id: true, name: true, slug: true },
+          select: { tag: { select: { id: true, name: true, slug: true } } },
         },
       },
     });

@@ -41,7 +41,8 @@ export async function GET(request: NextRequest) {
           slug: true,
           email: true,
           bio: true,
-          imageUrl: true,
+          avatar: true,
+          expertise: true,
           socialLinks: true,
           createdAt: true,
           ...(includeCount && {
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, slug, email, bio, imageUrl, socialLinks } = body;
+    const { name, slug, email, bio, avatar, expertise, socialLinks } = body;
 
     if (!name) {
       return apiError("Yazar adı zorunludur", 400);
@@ -117,7 +118,8 @@ export async function POST(request: NextRequest) {
         slug: finalSlug,
         email,
         bio,
-        imageUrl,
+        avatar,
+        expertise: expertise || [],
         socialLinks,
       },
     });

@@ -39,7 +39,8 @@ export async function GET(request: NextRequest) {
           name: true,
           slug: true,
           description: true,
-          imageUrl: true,
+          color: true,
+          icon: true,
           parentId: true,
           order: true,
           createdAt: true,
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, slug, description, imageUrl, parentId, order } = body;
+    const { name, slug, description, color, icon, parentId, order } = body;
 
     if (!name) {
       return apiError("Kategori adı zorunludur", 400);
@@ -122,7 +123,8 @@ export async function POST(request: NextRequest) {
         name,
         slug: finalSlug,
         description,
-        imageUrl,
+        color: color || "#4F46E5",
+        icon,
         parentId,
         order: order || 0,
       },

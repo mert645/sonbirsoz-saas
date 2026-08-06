@@ -18,21 +18,22 @@ export async function GET(request: NextRequest) {
   try {
     const invitation = await prisma.tenantInvitation.findUnique({
       where: { token },
-      include: {
-        tenant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            logo: true,
-          },
-        },
-      },
     });
 
     if (!invitation) {
       return NextResponse.json({ error: "Davet bulunamadı" }, { status: 404 });
     }
+
+    // Tenant bilgilerini ayrı sorgula
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: invitation.tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logo: true,
+      },
+    });
 
     if (invitation.status !== "PENDING") {
       return NextResponse.json(
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
         id: invitation.id,
         email: invitation.email,
         role: invitation.role,
-        tenant: invitation.tenant,
+        tenant,
       },
       userExists: !!existingUser,
     });
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
         data: {
           email: invitation.email,
           name: name || invitation.email.split("@")[0],
-          password: hashedPassword,
+          passwordHash: hashedPassword,
           role: "AUTHOR",
         },
       });

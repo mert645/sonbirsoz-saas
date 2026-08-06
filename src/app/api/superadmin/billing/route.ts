@@ -157,7 +157,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         tenant,
-        message: `Plan ${PLAN_NAMES[plan]} olarak güncellendi`,
+        message: `Plan ${PLAN_NAMES[plan as keyof typeof PLAN_NAMES]} olarak güncellendi`,
       });
     }
 

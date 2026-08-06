@@ -391,10 +391,15 @@ function CreateTenantModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string;
+    slug: string;
+    plan: "STARTER" | "PROFESSIONAL" | "ENTERPRISE";
+    primaryColor: string;
+  }>({
     name: "",
     slug: "",
-    plan: "STARTER" as const,
+    plan: "STARTER",
     primaryColor: "#4F46E5",
   });
 

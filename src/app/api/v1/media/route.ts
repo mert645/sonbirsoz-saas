@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     };
 
     if (type) {
-      where.type = type.toUpperCase();
+      where.format = type.toLowerCase();
     }
 
     if (search) {
@@ -43,11 +43,13 @@ export async function GET(request: NextRequest) {
           id: true,
           filename: true,
           url: true,
-          type: true,
+          format: true,
           size: true,
           width: true,
           height: true,
           alt: true,
+          caption: true,
+          folder: true,
           createdAt: true,
         },
         orderBy: { createdAt: "desc" },
@@ -79,7 +81,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { url, filename, type, size, width, height, alt } = body;
+    const { url, filename, format, size, width, height, alt, caption, folder } = body;
 
     if (!url || !filename) {
       return apiError("url ve filename zorunludur", 400);
@@ -90,11 +92,13 @@ export async function POST(request: NextRequest) {
         tenantId: ctx.tenantId,
         url,
         filename,
-        type: type?.toUpperCase() || "IMAGE",
+        format: format || "image/jpeg",
         size: size || 0,
         width,
         height,
         alt,
+        caption,
+        folder: folder || "Genel",
       },
     });
 

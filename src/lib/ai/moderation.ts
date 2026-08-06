@@ -128,15 +128,24 @@ export async function moderateAndLog(input: {
   text: string;
   contentType: "article" | "comment";
   source: string; // "ai-generate" | "import" | "rss" | "comment" | "manual"
+  tenantId?: string;
   articleId?: string;
   commentId?: string;
 }): Promise<ModerationResult & { logId: string | null }> {
   const result = await moderateContent({ title: input.title, text: input.text });
 
   let logId: string | null = null;
+  
+  // tenantId yoksa log oluşturma (multi-tenant zorunluluğu)
+  if (!input.tenantId) {
+    console.warn("ModerationLog: tenantId eksik, log oluşturulmadı");
+    return { ...result, logId };
+  }
+  
   try {
     const log = await prisma.moderationLog.create({
       data: {
+        tenantId: input.tenantId,
         articleId: input.articleId || null,
         commentId: input.commentId || null,
         contentType: input.contentType,

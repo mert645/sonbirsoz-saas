@@ -188,11 +188,11 @@ export async function exportTenantData(tenantId: string): Promise<{
     }),
     prisma.media.findMany({
       where: { tenantId },
-      select: { id: true, filename: true, url: true, type: true, createdAt: true },
+      select: { id: true, filename: true, url: true, format: true, createdAt: true },
     }),
     prisma.comment.findMany({
       where: { tenantId },
-      select: { id: true, content: true, authorName: true, createdAt: true },
+      select: { id: true, content: true, userId: true, createdAt: true },
     }),
   ]);
 
@@ -252,13 +252,8 @@ export async function anonymizeUser(userId: string): Promise<void> {
     }),
 
     // Yorumlardaki kullanıcı bilgilerini anonimleştir
-    prisma.comment.updateMany({
-      where: { userId },
-      data: {
-        authorName: anonymizedName,
-        authorEmail: anonymizedEmail,
-      },
-    }),
+    // Comment modelinde authorName/authorEmail yok, sadece userId var
+    // Yorumlar user ilişkisi üzerinden kullanıcıya bağlı
 
     // Audit loglarındaki email'i anonimleştir
     prisma.auditLog.updateMany({
@@ -333,17 +328,11 @@ export async function deleteUserCompletely(userId: string): Promise<void> {
     // Editorial actions
     prisma.editorialAction.deleteMany({ where: { userId } }),
     
-    // Yorumlar (anonimleştir)
-    prisma.comment.updateMany({
-      where: { userId },
-      data: { userId: null, authorName: "[Silinmiş Kullanıcı]" },
-    }),
+    // Yorumları sil (userId zorunlu alan olduğu için anonimleştirilemez)
+    prisma.comment.deleteMany({ where: { userId } }),
     
-    // Makaleler (userId null yapılır)
-    prisma.article.updateMany({
-      where: { userId },
-      data: { userId: null },
-    }),
+    // Makaleleri sil (userId zorunlu alan)
+    prisma.article.deleteMany({ where: { userId } }),
     
     // Kullanıcıyı sil
     prisma.user.delete({ where: { id: userId } }),

@@ -244,9 +244,12 @@ function InviteModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    email: string;
+    role: "ADMIN" | "EDITOR" | "AUTHOR";
+  }>({
     email: "",
-    role: "EDITOR" as const,
+    role: "EDITOR",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {

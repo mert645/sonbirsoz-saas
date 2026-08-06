@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, X, Search } from "lucide-react";
+import type { TenantData } from "@/lib/tenant";
 
 interface Category {
   id: string;
@@ -11,19 +12,8 @@ interface Category {
   color: string;
 }
 
-interface Tenant {
-  id: string;
-  name: string;
-  slug: string;
-  plan: string;
-  settings: {
-    siteName?: string;
-    tagline?: string;
-  } | null;
-}
-
 interface PublicHeaderProps {
-  tenant: Tenant;
+  tenant: TenantData;
   categories: Category[];
 }
 

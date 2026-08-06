@@ -108,14 +108,16 @@ export async function getBreakingArticles(
 
 export async function getArticlesByCategory(
   categorySlug: string,
-  { page = 1, limit = 12 }: { page?: number; limit?: number } = {}
+  { page = 1, limit = 12, tenantId }: { page?: number; limit?: number; tenantId?: string } = {}
 ): Promise<{ articles: ArticleListItem[]; total: number }> {
   try {
-    const where = {
+    const where: Record<string, unknown> = {
       status: "PUBLISHED" as const,
       publishedAt: { not: null },
       category: { slug: categorySlug },
     };
+    if (tenantId) where.tenantId = tenantId;
+
     const [rows, total] = await Promise.all([
       prisma.article.findMany({
         where,

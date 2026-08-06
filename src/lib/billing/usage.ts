@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { PLAN_LIMITS, UsageMetric } from "./plans";
+import { PLAN_LIMITS } from "./plans";
+import type { UsageMetric } from "./plans";
 import { TenantPlan } from "@/generated/prisma/client";
 
 export interface UsageCheckResult {
