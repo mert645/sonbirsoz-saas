@@ -1,167 +1,239 @@
-import { Metadata } from "next";
-import { notFound, permanentRedirect } from "next/navigation";
-import Image from "next/image";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Clock } from "lucide-react";
-import { CATEGORIES, SITE_URL } from "@/lib/utils/constants";
-import {
-  getArticlesByCategory,
-  getCategorySlugForArticle,
-} from "@/lib/data/articles";
-import { formatRelativeTime } from "@/lib/utils/format";
+import Image from "next/image";
+import { prisma } from "@/lib/db";
+import { getCurrentTenant } from "@/lib/tenant";
+import { PublicHeader } from "@/components/public/header";
+import { PublicFooter } from "@/components/public/footer";
+import { Clock, Eye } from "lucide-react";
 
-interface CategoryPageProps {
+export const dynamic = "force-dynamic";
+
+interface PageProps {
   params: Promise<{ category: string }>;
+  searchParams: Promise<{ page?: string }>;
 }
 
-export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
-  const { category } = await params;
-  const cat = CATEGORIES.find((c) => c.slug === category);
-  if (!cat) return {};
+const ARTICLES_PER_PAGE = 12;
+
+async function getCategoryData(tenantId: string, categorySlug: string, page: number) {
+  const category = await prisma.category.findFirst({
+    where: { tenantId, slug: categorySlug, isActive: true },
+  });
+
+  if (!category) return null;
+
+  const [articles, totalCount] = await Promise.all([
+    prisma.article.findMany({
+      where: {
+        tenantId,
+        categoryId: category.id,
+        status: "PUBLISHED",
+      },
+      orderBy: { publishedAt: "desc" },
+      skip: (page - 1) * ARTICLES_PER_PAGE,
+      take: ARTICLES_PER_PAGE,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        spot: true,
+        coverImage: true,
+        publishedAt: true,
+        viewCount: true,
+        author: { select: { name: true } },
+      },
+    }),
+    prisma.article.count({
+      where: {
+        tenantId,
+        categoryId: category.id,
+        status: "PUBLISHED",
+      },
+    }),
+  ]);
 
   return {
-    title: `${cat.name} Haberleri`,
-    description: `${cat.name} kategorisindeki en güncel haberler. Son dakika ${cat.name.toLowerCase()} haberleri Son Bir Söz'de.`,
-    alternates: { canonical: `${SITE_URL}/${cat.slug}` },
-    openGraph: {
-      title: `${cat.name} Haberleri | Son Bir Söz`,
-      description: `${cat.name} kategorisindeki en güncel haberler.`,
-    },
+    category,
+    articles,
+    totalCount,
+    totalPages: Math.ceil(totalCount / ARTICLES_PER_PAGE),
   };
 }
 
-export function generateStaticParams() {
-  return CATEGORIES.map((cat) => ({ category: cat.slug }));
+async function getCategories(tenantId: string) {
+  return prisma.category.findMany({
+    where: { tenantId, isActive: true },
+    orderBy: { order: "asc" },
+    select: { id: true, name: true, slug: true, color: true },
+  });
 }
 
-// Bilinen kategoriler generateStaticParams ile ISR'lenir; bilinmeyen tek-segment
-// yollar (eski sonbirsoz.com haber linkleri) dinamik render edilip yönlendirilir.
-export const dynamicParams = true;
-export const revalidate = 300;
+export default async function CategoryPage({ params, searchParams }: PageProps) {
+  const { category: categorySlug } = await params;
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam || "1"));
 
-const STOCK_IMAGES = [
-  "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=600&q=80",
-  "https://images.unsplash.com/photo-1495020689067-958852a7765e?w=600&q=80",
-  "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&q=80",
-  "https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?w=600&q=80",
-  "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&q=80",
-  "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&q=80",
-  "https://images.unsplash.com/photo-1589994965851-a8f479c573a9?w=600&q=80",
-  "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=600&q=80",
-  "https://images.unsplash.com/photo-1542296332-2e4473faf563?w=600&q=80",
-];
+  const tenant = await getCurrentTenant();
 
-export default async function CategoryPage({ params }: CategoryPageProps) {
-  const { category } = await params;
-  const cat = CATEGORIES.find((c) => c.slug === category);
-
-  if (!cat) {
-    // Eski sonbirsoz.com kök seviye URL'i olabilir (/haber-slug).
-    // Makale bulunursa yeni /kategori/haber-slug adresine kalıcı yönlendir.
-    // Not: Asıl 301 yönlendirme proxy'de (stream öncesi) yapılır; bu, doğrudan
-    // erişim veya proxy atlanırsa güvenlik ağıdır.
-    const articleCategory = await getCategorySlugForArticle(category);
-    if (articleCategory) {
-      permanentRedirect(`/${articleCategory}/${category}`);
-    }
+  if (!tenant) {
     notFound();
   }
 
-  const { articles: realArticles } = await getArticlesByCategory(category, {
-    page: 1,
-    limit: 12,
-  });
+  const [categoryData, categories] = await Promise.all([
+    getCategoryData(tenant.id, categorySlug, page),
+    getCategories(tenant.id),
+  ]);
 
-  const articles = realArticles.map((a, i) => ({
-    id: a.id,
-    title: a.title,
-    slug: a.slug,
-    spot: a.spot ?? "",
-    coverImage: a.coverImage ?? STOCK_IMAGES[i % STOCK_IMAGES.length],
-    publishedAt: (a.publishedAt ?? new Date()).toISOString(),
-    readingTime: a.readingTime,
-  }));
+  if (!categoryData) {
+    notFound();
+  }
+
+  const { category, articles, totalCount, totalPages } = categoryData;
+
+  const formatDate = (date: Date | null) => {
+    if (!date) return "";
+    return new Date(date).toLocaleDateString("tr-TR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
 
   return (
-    <div className="animate-fade-in mx-auto max-w-7xl px-4 py-8">
-      {/* Breadcrumb */}
-      <nav className="mb-8 flex items-center gap-2 text-[13px] text-muted-foreground">
-        <Link href="/" className="transition-colors hover:text-foreground">
-          Ana Sayfa
-        </Link>
-        <span>/</span>
-        <span className="font-medium text-foreground">{cat.name}</span>
-      </nav>
+    <div className="min-h-screen bg-gray-50">
+      <PublicHeader tenant={tenant} categories={categories} />
 
-      {/* Category Header */}
-      <header className="mb-10">
-        <div className="flex items-center gap-3">
-          <span
-            className="h-8 w-1.5 rounded-full"
-            style={{ backgroundColor: cat.color }}
-          />
-          <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">
-            {cat.name}
-          </h1>
-        </div>
-        <p className="mt-3 text-[15px] text-muted-foreground">
-          {cat.name} kategorisindeki en güncel haberler ve son dakika gelişmeleri.
-        </p>
-      </header>
+      <main className="py-8">
+        <div className="container mx-auto px-4">
+          {/* Category Header */}
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className="w-1.5 h-10 rounded-full"
+                style={{ backgroundColor: category.color }}
+              />
+              <h1 className="text-3xl font-bold text-gray-900">{category.name}</h1>
+            </div>
+            {category.description && (
+              <p className="text-gray-600 ml-5">{category.description}</p>
+            )}
+            <p className="text-sm text-gray-500 ml-5 mt-2">
+              {totalCount} haber bulundu
+            </p>
+          </div>
 
-      {/* Articles Grid */}
-      {articles.length > 0 ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {articles.map((article, i) => (
-            <Link
-              key={article.id}
-              href={`/${category}/${article.slug}`}
-              className="group overflow-hidden rounded-xl border border-border bg-card transition-all hover:border-border hover:shadow-md"
-            >
-              <div className="relative aspect-[16/10] overflow-hidden">
-                <Image
-                  src={article.coverImage}
-                  alt={article.title}
-                  fill
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 33vw, 400px"
-                  priority={i < 3}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+          {/* Articles Grid */}
+          {articles.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                {articles.map((article) => (
+                  <article key={article.id} className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <Link href={`/${categorySlug}/${article.slug}`}>
+                      {/* Image */}
+                      <div className="relative aspect-[16/10] overflow-hidden">
+                        {article.coverImage ? (
+                          <Image
+                            src={article.coverImage}
+                            alt={article.title}
+                            fill
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300" />
+                        )}
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-4">
+                        <h2 className="font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-primary transition-colors">
+                          {article.title}
+                        </h2>
+                        
+                        {article.spot && (
+                          <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                            {article.spot}
+                          </p>
+                        )}
+
+                        {/* Meta */}
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatDate(article.publishedAt)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5" />
+                            {article.viewCount.toLocaleString("tr-TR")}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  </article>
+                ))}
               </div>
-              <div className="p-4">
-                <span
-                  className="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
-                  style={{ backgroundColor: cat.color }}
-                >
-                  {cat.name}
-                </span>
-                <h3 className="mt-2 line-clamp-2 text-[15px] font-bold leading-snug text-foreground group-hover:text-primary transition-colors">
-                  {article.title}
-                </h3>
-                <p className="mt-2 line-clamp-2 text-[13px] text-muted-foreground">
-                  {article.spot}
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-[11px] text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>{article.readingTime} dk okuma</span>
-                  <span>·</span>
-                  <span>{formatRelativeTime(article.publishedAt)}</span>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  {page > 1 && (
+                    <Link
+                      href={`/${categorySlug}?page=${page - 1}`}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      ← Önceki
+                    </Link>
+                  )}
+                  
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                      .map((p, idx, arr) => (
+                        <>
+                          {idx > 0 && arr[idx - 1] !== p - 1 && (
+                            <span key={`ellipsis-${p}`} className="px-2 text-gray-400">...</span>
+                          )}
+                          <Link
+                            key={p}
+                            href={`/${categorySlug}?page=${p}`}
+                            className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
+                              p === page
+                                ? "text-white"
+                                : "bg-white border border-gray-300 hover:bg-gray-50"
+                            }`}
+                            style={p === page ? { backgroundColor: category.color } : {}}
+                          >
+                            {p}
+                          </Link>
+                        </>
+                      ))}
+                  </div>
+
+                  {page < totalPages && (
+                    <Link
+                      href={`/${categorySlug}?page=${page + 1}`}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Sonraki →
+                    </Link>
+                  )}
                 </div>
-              </div>
-            </Link>
-          ))}
+              )}
+            </>
+          ) : (
+            <div className="text-center py-20">
+              <h2 className="text-xl font-semibold text-gray-700 mb-2">
+                Bu kategoride henüz haber yok
+              </h2>
+              <p className="text-gray-500">
+                Yakında yeni haberler eklenecek.
+              </p>
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="rounded-xl border border-dashed border-border py-20 text-center">
-          <p className="text-[15px] font-medium text-foreground">
-            Bu kategoride henüz yayımlanmış haber bulunmuyor.
-          </p>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Kısa süre içinde yeni içerikler eklenecek.
-          </p>
-        </div>
-      )}
+      </main>
+
+      <PublicFooter tenant={tenant} />
     </div>
   );
 }

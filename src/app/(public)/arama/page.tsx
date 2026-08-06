@@ -1,155 +1,257 @@
-"use client";
+import Link from "next/link";
+import Image from "next/image";
+import { prisma } from "@/lib/db";
+import { getCurrentTenant } from "@/lib/tenant";
+import { PublicHeader } from "@/components/public/header";
+import { PublicFooter } from "@/components/public/footer";
+import { Search, Clock, Eye } from "lucide-react";
 
-import { useState, useEffect, useCallback } from "react";
-import { Search as SearchIcon, Loader2 } from "lucide-react";
-import { ArticleCard } from "@/components/article/article-card";
-import { AiSearchPanel } from "@/components/shared/ai-search-panel";
-import { CATEGORIES } from "@/lib/utils/constants";
-import { trackEvent } from "@/lib/analytics";
+export const dynamic = "force-dynamic";
 
-interface SearchResult {
-  id: string;
-  title: string;
-  slug: string;
-  spot: string | null;
-  coverImage: string | null;
-  publishedAt: string | null;
-  readingTime: number;
-  category: { name: string; slug: string; color: string };
-  author: { name: string; slug: string };
+interface PageProps {
+  searchParams: Promise<{ q?: string; page?: string }>;
 }
 
-export default function SearchPage() {
-  const [query, setQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false);
+const RESULTS_PER_PAGE = 12;
 
-  const runSearch = useCallback(async (q: string, category: string) => {
-    if (q.trim().length < 2) {
-      setResults([]);
-      setSearched(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ q });
-      if (category !== "all") params.set("category", category);
-      const res = await fetch(`/api/search?${params.toString()}`);
-      const json = await res.json();
-      setResults(Array.isArray(json.data) ? json.data : []);
-      trackEvent("search", { search_term: q, category });
-    } catch {
-      setResults([]);
-    } finally {
-      setLoading(false);
-      setSearched(true);
-    }
-  }, []);
+async function searchArticles(tenantId: string, query: string, page: number) {
+  if (!query || query.length < 2) {
+    return { articles: [], totalCount: 0, totalPages: 0 };
+  }
 
-  // Debounced search on query/category change.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      runSearch(query, selectedCategory);
-    }, 300);
-    return () => clearTimeout(t);
-  }, [query, selectedCategory, runSearch]);
+  const [articles, totalCount] = await Promise.all([
+    prisma.article.findMany({
+      where: {
+        tenantId,
+        status: "PUBLISHED",
+        OR: [
+          { title: { contains: query, mode: "insensitive" } },
+          { spot: { contains: query, mode: "insensitive" } },
+          { content: { contains: query, mode: "insensitive" } },
+        ],
+      },
+      orderBy: { publishedAt: "desc" },
+      skip: (page - 1) * RESULTS_PER_PAGE,
+      take: RESULTS_PER_PAGE,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        spot: true,
+        coverImage: true,
+        publishedAt: true,
+        viewCount: true,
+        category: { select: { name: true, slug: true, color: true } },
+        author: { select: { name: true } },
+      },
+    }),
+    prisma.article.count({
+      where: {
+        tenantId,
+        status: "PUBLISHED",
+        OR: [
+          { title: { contains: query, mode: "insensitive" } },
+          { spot: { contains: query, mode: "insensitive" } },
+          { content: { contains: query, mode: "insensitive" } },
+        ],
+      },
+    }),
+  ]);
+
+  return {
+    articles,
+    totalCount,
+    totalPages: Math.ceil(totalCount / RESULTS_PER_PAGE),
+  };
+}
+
+async function getCategories(tenantId: string) {
+  return prisma.category.findMany({
+    where: { tenantId, isActive: true },
+    orderBy: { order: "asc" },
+    select: { id: true, name: true, slug: true, color: true },
+  });
+}
+
+export default async function SearchPage({ searchParams }: PageProps) {
+  const { q: query, page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam || "1"));
+
+  const tenant = await getCurrentTenant();
+
+  if (!tenant) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Site bulunamadı</p>
+      </div>
+    );
+  }
+
+  const [searchResults, categories] = await Promise.all([
+    searchArticles(tenant.id, query || "", page),
+    getCategories(tenant.id),
+  ]);
+
+  const { articles, totalCount, totalPages } = searchResults;
+
+  const formatDate = (date: Date | null) => {
+    if (!date) return "";
+    return new Date(date).toLocaleDateString("tr-TR", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6">
-      <h1 className="text-2xl font-bold">Haber Ara</h1>
-      <p className="mt-1 text-muted-foreground">Tüm haberlerde arama yapın</p>
+    <div className="min-h-screen bg-gray-50">
+      <PublicHeader tenant={tenant} categories={categories} />
 
-      {/* Search Input */}
-      <div className="mt-6 relative">
-        <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Haber başlığı, konu veya anahtar kelime yazın..."
-          className="w-full rounded-xl border border-border bg-card py-4 pl-12 pr-12 text-lg focus:outline-none focus:ring-2 focus:ring-primary"
-          autoFocus
-        />
-        {loading && (
-          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-muted-foreground" />
-        )}
-      </div>
-
-      {/* Category Filter */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          onClick={() => setSelectedCategory("all")}
-          className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-            selectedCategory === "all"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-        >
-          Tümü
-        </button>
-        {CATEGORIES.slice(0, 8).map((cat) => (
-          <button
-            key={cat.slug}
-            onClick={() => setSelectedCategory(cat.slug)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-              selectedCategory === cat.slug
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            {cat.name}
-          </button>
-        ))}
-      </div>
-
-      {/* AI Özet paneli */}
-      <AiSearchPanel key={query.trim().toLowerCase()} query={query} />
-
-      {/* Results */}
-      {query.trim().length >= 2 && searched && !loading && (
-        <div className="mt-8">
-          <p className="mb-4 text-sm text-muted-foreground">
-            <strong>&ldquo;{query}&rdquo;</strong> için {results.length} sonuç
-            bulundu
-          </p>
-          {results.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {results.map((article) => (
-                <ArticleCard
-                  key={article.id}
-                  title={article.title}
-                  slug={article.slug}
-                  spot={article.spot}
-                  coverImage={article.coverImage}
-                  publishedAt={article.publishedAt ?? new Date().toISOString()}
-                  readingTime={article.readingTime}
-                  category={article.category}
-                  author={article.author}
+      <main className="py-8">
+        <div className="container mx-auto px-4">
+          {/* Search Header */}
+          <div className="max-w-2xl mx-auto mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 text-center mb-6">
+              Haber Ara
+            </h1>
+            
+            <form action="/arama" method="GET" className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  name="q"
+                  defaultValue={query}
+                  placeholder="Arama yapın..."
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
-              ))}
+              </div>
+              <button
+                type="submit"
+                className="px-6 py-3 text-white font-medium rounded-xl transition-colors"
+                style={{ backgroundColor: "var(--primary-color, #4F46E5)" }}
+              >
+                Ara
+              </button>
+            </form>
+          </div>
+
+          {/* Results */}
+          {query && (
+            <div className="mb-6">
+              <p className="text-gray-600">
+                <span className="font-semibold">&quot;{query}&quot;</span> için{" "}
+                <span className="font-semibold">{totalCount}</span> sonuç bulundu
+              </p>
+            </div>
+          )}
+
+          {articles.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                {articles.map((article) => (
+                  <article key={article.id} className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <Link href={`/${article.category?.slug}/${article.slug}`}>
+                      <div className="relative aspect-[16/10] overflow-hidden">
+                        {article.coverImage ? (
+                          <Image
+                            src={article.coverImage}
+                            alt={article.title}
+                            fill
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300" />
+                        )}
+                        {article.category && (
+                          <span
+                            className="absolute top-3 left-3 px-2 py-1 text-xs font-semibold text-white rounded"
+                            style={{ backgroundColor: article.category.color }}
+                          >
+                            {article.category.name}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="p-4">
+                        <h2 className="font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-primary transition-colors">
+                          {article.title}
+                        </h2>
+                        
+                        {article.spot && (
+                          <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                            {article.spot}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {formatDate(article.publishedAt)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5" />
+                            {article.viewCount.toLocaleString("tr-TR")}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  </article>
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  {page > 1 && (
+                    <Link
+                      href={`/arama?q=${encodeURIComponent(query || "")}&page=${page - 1}`}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                      ← Önceki
+                    </Link>
+                  )}
+                  
+                  <span className="px-4 py-2 text-gray-600">
+                    Sayfa {page} / {totalPages}
+                  </span>
+
+                  {page < totalPages && (
+                    <Link
+                      href={`/arama?q=${encodeURIComponent(query || "")}&page=${page + 1}`}
+                      className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                      Sonraki →
+                    </Link>
+                  )}
+                </div>
+              )}
+            </>
+          ) : query ? (
+            <div className="text-center py-20">
+              <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-700 mb-2">
+                Sonuç bulunamadı
+              </h2>
+              <p className="text-gray-500">
+                &quot;{query}&quot; ile eşleşen haber bulunamadı. Farklı anahtar kelimeler deneyin.
+              </p>
             </div>
           ) : (
-            <div className="mt-12 text-center">
-              <SearchIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
-              <p className="mt-4 text-muted-foreground">
-                Aramanızla eşleşen haber bulunamadı.
+            <div className="text-center py-20">
+              <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-700 mb-2">
+                Arama yapın
+              </h2>
+              <p className="text-gray-500">
+                Haberlerde arama yapmak için yukarıdaki kutuyu kullanın.
               </p>
             </div>
           )}
         </div>
-      )}
+      </main>
 
-      {/* Empty state */}
-      {query.trim().length < 2 && (
-        <div className="mt-16 text-center">
-          <SearchIcon className="mx-auto h-12 w-12 text-muted-foreground/30" />
-          <p className="mt-4 text-muted-foreground">
-            Aramak istediğiniz konuyu yukarıya yazın (en az 2 karakter)
-          </p>
-        </div>
-      )}
+      <PublicFooter tenant={tenant} />
     </div>
   );
 }
