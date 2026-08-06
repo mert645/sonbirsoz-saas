@@ -1,8 +1,8 @@
 # SonBirSöz SaaS Platform - Proje Dokümantasyonu
 
-**Versiyon:** 1.1  
+**Versiyon:** 1.2  
 **Son Güncelleme:** 6 Ağustos 2026  
-**Proje Durumu:** Geliştirme Aşamasında (Phase 5 Tamamlandı)  
+**Proje Durumu:** Geliştirme Aşamasında (Phase 5 + Güvenlik Tamamlandı)  
 **GitHub:** https://github.com/mert645/sonbirsoz-saas
 
 ---
@@ -12,12 +12,13 @@
 1. [Proje Özeti](#proje-özeti)
 2. [Mimari Yapı](#mimari-yapı)
 3. [Tamamlanan Fazlar](#tamamlanan-fazlar)
-4. [Dosya Yapısı](#dosya-yapısı)
-5. [Veritabanı Şeması](#veritabanı-şeması)
-6. [API Endpoints](#api-endpoints)
-7. [Eksik Kalan Kısımlar](#eksik-kalan-kısımlar)
-8. [Canlıya Taşıma Rehberi](#canlıya-taşıma-rehberi)
-9. [Geliştirici Notları](#geliştirici-notları)
+4. [Güvenlik Altyapısı](#güvenlik-altyapısı)
+5. [Dosya Yapısı](#dosya-yapısı)
+6. [Veritabanı Şeması](#veritabanı-şeması)
+7. [API Endpoints](#api-endpoints)
+8. [Eksik Kalan Kısımlar](#eksik-kalan-kısımlar)
+9. [Canlıya Taşıma Rehberi](#canlıya-taşıma-rehberi)
+10. [Geliştirici Notları](#geliştirici-notları)
 
 ---
 
@@ -267,6 +268,284 @@ src/app/(admin)/admin/api-keys/  # API Key yönetim UI
 
 ---
 
+## 🔒 Güvenlik Altyapısı
+
+### Genel Bakış
+
+Platform, kapsamlı bir güvenlik altyapısı ile korunmaktadır. Tüm güvenlik modülleri `src/lib/security/` altında organize edilmiştir.
+
+### 1. Input Sanitization & Validation
+
+**Dosya:** `src/lib/security/sanitize.ts`
+
+| Fonksiyon | Açıklama |
+|-----------|----------|
+| `escapeHtml()` | HTML özel karakterlerini escape eder |
+| `stripHtml()` | HTML tag'lerini tamamen kaldırır |
+| `sanitizeInput()` | Tehlikeli karakterleri temizler |
+| `containsSqlInjection()` | SQL injection pattern'lerini tespit eder |
+| `containsXss()` | XSS pattern'lerini tespit eder |
+| `containsPathTraversal()` | Path traversal saldırılarını tespit eder |
+| `isValidEmail()` | Email format doğrulama |
+| `isValidUrl()` | URL format doğrulama |
+| `isValidSlug()` | Slug format doğrulama |
+| `validateAndSanitize()` | Tüm kontrolleri tek seferde uygular |
+| `sanitizeObject()` | Object içindeki tüm string'leri temizler |
+
+**Kullanım Örneği:**
+```typescript
+import { validateAndSanitize, containsXss } from "@/lib/security/sanitize";
+
+// Tek değer kontrolü
+if (containsXss(userInput)) {
+  return NextResponse.json({ error: "Geçersiz içerik" }, { status: 400 });
+}
+
+// Kapsamlı kontrol ve temizleme
+const { valid, sanitized, error } = validateAndSanitize(userInput, {
+  maxLength: 1000,
+  checkSql: true,
+  checkXss: true,
+});
+```
+
+---
+
+### 2. Security Headers
+
+**Dosya:** `src/lib/security/headers.ts`
+
+Tüm response'lara otomatik olarak eklenen güvenlik header'ları:
+
+| Header | Değer | Açıklama |
+|--------|-------|----------|
+| `X-XSS-Protection` | `1; mode=block` | Tarayıcı XSS filtresi |
+| `X-Frame-Options` | `SAMEORIGIN` | Clickjacking koruması |
+| `X-Content-Type-Options` | `nosniff` | MIME sniffing koruması |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Referrer bilgisi kontrolü |
+| `Permissions-Policy` | `camera=(), microphone=()...` | Tarayıcı API'leri kısıtlama |
+| `Strict-Transport-Security` | `max-age=31536000...` | HSTS (production) |
+
+**CSRF Koruması:**
+- Origin header doğrulama
+- Referer header doğrulama
+- State-changing request'ler için otomatik kontrol
+
+---
+
+### 3. Authentication & Authorization
+
+**Dosya:** `src/lib/security/auth.ts`
+
+| Fonksiyon | Açıklama |
+|-----------|----------|
+| `getAuthenticatedUser()` | Session'dan kullanıcı bilgisi alır |
+| `getAuthContext()` | User + Tenant context döner |
+| `hasRole()` | Belirli role sahip mi kontrol eder |
+| `hasMinimumRole()` | Role hierarchy kontrolü |
+| `requireAuth()` | API route'lar için auth middleware |
+| `requireRole()` | Belirli roller için auth |
+| `requireAdmin()` | Admin rolü gerektirir |
+| `requireSuperAdmin()` | Super Admin rolü gerektirir |
+| `requireTenantAccess()` | Tenant erişim kontrolü |
+| `requireResourceAccess()` | Resource ownership kontrolü |
+| `validateSession()` | Session geçerliliğini doğrular |
+
+**Role Hierarchy:**
+```
+SUPER_ADMIN (5) > ADMIN (4) > EDITOR (3) > AUTHOR (2) > USER (1)
+```
+
+**Kullanım Örneği:**
+```typescript
+import { requireAdmin, requireTenantAccess } from "@/lib/security/auth";
+
+export async function POST(request: NextRequest) {
+  // Admin rolü gerektirir
+  const auth = await requireAdmin();
+  if (auth instanceof NextResponse) return auth;
+  
+  // auth.user ve auth.tenantId kullanılabilir
+}
+```
+
+---
+
+### 4. Audit Logging
+
+**Dosya:** `src/lib/security/audit.ts`
+
+Tüm kritik aksiyonlar loglanır:
+
+| Action | Severity | Açıklama |
+|--------|----------|----------|
+| `LOGIN` | INFO | Başarılı giriş |
+| `LOGIN_FAILED` | WARNING | Başarısız giriş denemesi |
+| `LOGOUT` | INFO | Çıkış |
+| `PASSWORD_CHANGE` | INFO | Şifre değişikliği |
+| `USER_CREATE/UPDATE/DELETE` | INFO/WARNING | Kullanıcı işlemleri |
+| `TENANT_CREATE/UPDATE/DELETE` | INFO/WARNING | Tenant işlemleri |
+| `ARTICLE_CREATE/UPDATE/DELETE` | INFO | Makale işlemleri |
+| `API_KEY_CREATE/DELETE` | WARNING | API key işlemleri |
+| `SUSPICIOUS_ACTIVITY` | CRITICAL | Şüpheli aktivite |
+| `RATE_LIMIT_EXCEEDED` | WARNING | Rate limit aşımı |
+
+**Hassas Veri Maskeleme:**
+Log'larda şu alanlar otomatik olarak `[REDACTED]` ile maskelenir:
+- password, passwordHash
+- token, secret, apiKey
+- authorization, cookie, session
+- creditCard, ssn, cvv
+
+**Kullanım Örneği:**
+```typescript
+import { createAuditLog, auditLogin } from "@/lib/security/audit";
+
+// Login audit
+await auditLogin(email, true, ipAddress, userAgent, userId);
+
+// Genel audit
+await createAuditLog({
+  action: "ARTICLE_CREATE",
+  severity: "INFO",
+  userId: user.id,
+  tenantId: tenant.id,
+  resourceType: "article",
+  resourceId: article.id,
+  success: true,
+});
+```
+
+---
+
+### 5. Password Policy
+
+**Dosya:** `src/lib/security/password.ts`
+
+**Şifre Gereksinimleri:**
+| Kural | Değer |
+|-------|-------|
+| Minimum uzunluk | 8 karakter |
+| Maximum uzunluk | 128 karakter |
+| Büyük harf | Zorunlu |
+| Küçük harf | Zorunlu |
+| Rakam | Zorunlu |
+| Özel karakter | Zorunlu (!@#$%^&* vb.) |
+| Yaygın şifre kontrolü | Aktif |
+| Şifre geçmişi | Son 5 şifre tekrar kullanılamaz |
+
+**Şifre Gücü Hesaplama:**
+- `weak`: Temel gereksinimleri karşılamıyor
+- `medium`: Gereksinimleri karşılıyor
+- `strong`: 12+ karakter ve tüm gereksinimler
+
+**Kullanım Örneği:**
+```typescript
+import { validatePassword, hashPassword } from "@/lib/security/password";
+
+const { valid, errors, strength } = validatePassword(newPassword);
+if (!valid) {
+  return NextResponse.json({ errors }, { status: 400 });
+}
+
+const hash = await hashPassword(newPassword);
+```
+
+---
+
+### 6. Account Lockout
+
+**Dosya:** `src/lib/auth.ts`
+
+| Ayar | Değer |
+|------|-------|
+| Max başarısız deneme | 5 |
+| Kilit süresi | 15 dakika |
+| Timing attack koruması | Aktif |
+
+**Çalışma Mantığı:**
+1. Her başarısız login denemesi sayılır
+2. 5 başarısız denemede hesap 15 dakika kilitlenir
+3. Başarılı login'de sayaç sıfırlanır
+4. Kilit süresi dolunca otomatik açılır
+
+**Timing Attack Koruması:**
+Kullanıcı bulunamasa bile bcrypt karşılaştırması yapılır, böylece response süresi aynı kalır.
+
+---
+
+### 7. Rate Limiting
+
+**Dosya:** `src/proxy.ts`
+
+| Endpoint | Limit | Açıklama |
+|----------|-------|----------|
+| `/api/auth/callback/credentials` | 10/dk | Login brute-force koruması |
+| `/api/newsletter` | 5/dk | Form abuse koruması |
+| `/api/search` | 60/dk | Arama floodu |
+| `/api/ai-search` | 10/dk | AI maliyet kontrolü |
+| `/api/admin/*` | 100/dk | Admin API'ler |
+| `/api/superadmin/*` | 50/dk | Super Admin API'ler |
+| `/api/v1/*` | 200/dk | Public API |
+| `/api/invite/*` | 10/dk | Davet sistemi |
+
+---
+
+### 8. Veritabanı Güvenlik Modelleri
+
+```prisma
+// Audit Log
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String   // LOGIN, ARTICLE_CREATE, etc.
+  severity     String   // INFO, WARNING, ERROR, CRITICAL
+  userId       String?
+  userEmail    String?
+  tenantId     String?
+  resourceType String?
+  resourceId   String?
+  ipAddress    String?
+  userAgent    String?
+  details      Json
+  success      Boolean
+  createdAt    DateTime @default(now())
+}
+
+// Password History
+model PasswordHistory {
+  id           String   @id @default(cuid())
+  userId       String
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+// User Security Fields
+model User {
+  // ... diğer alanlar
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  passwordChangedAt   DateTime?
+}
+```
+
+---
+
+### Güvenlik Dosya Yapısı
+
+```
+src/lib/security/
+├── index.ts          # Tüm export'lar
+├── sanitize.ts       # Input sanitization
+├── headers.ts        # Security headers & CSRF
+├── auth.ts           # Authentication utilities
+├── audit.ts          # Audit logging
+└── password.ts       # Password policy
+```
+
+---
+
 ## 📁 Dosya Yapısı
 
 ```
@@ -346,6 +625,13 @@ sonbirsoz-saas/
 │   │   │   ├── middleware.ts
 │   │   │   ├── rate-limit.ts
 │   │   │   └── webhooks.ts
+│   │   ├── security/         # Güvenlik modülleri (YENİ)
+│   │   │   ├── index.ts
+│   │   │   ├── sanitize.ts   # Input sanitization
+│   │   │   ├── headers.ts    # Security headers & CSRF
+│   │   │   ├── auth.ts       # Auth utilities
+│   │   │   ├── audit.ts      # Audit logging
+│   │   │   └── password.ts   # Password policy
 │   │   ├── auth.ts
 │   │   ├── db.ts
 │   │   └── ...
@@ -570,7 +856,6 @@ enum UserRole {
 - [ ] **Custom Domain SSL:** Wildcard SSL ve DNS yapılandırması
 - [ ] **Public Site Şablonları:** Farklı site tasarımları
 - [ ] **Row-Level Security:** PostgreSQL RLS henüz aktif değil
-- [ ] **Audit Logging:** Kullanıcı aksiyonları loglanmıyor
 - [ ] **GDPR Uyumluluğu:** Veri silme/export özellikleri
 - [ ] **API Documentation:** OpenAPI/Swagger dokümantasyonu
 
