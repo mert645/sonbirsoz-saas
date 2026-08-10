@@ -405,6 +405,17 @@ function hasBedrockCreds(): boolean {
   );
 }
 
+/** Herhangi bir görsel sağlayıcısının yapılandırılıp yapılandırılmadığını kontrol et */
+export function hasAnyImageProvider(): boolean {
+  const hasSSM = !!(
+    process.env.SSM_CONTENT_API_KEY ||
+    process.env.NEXT_PUBLIC_SSM_CONTENT_API_KEY
+  );
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasBedrock = hasBedrockCreds();
+  return hasSSM || hasOpenAI || hasBedrock;
+}
+
 // Denenecek modeller (kalite → hız sırası). İlk erişilebilir olan kullanılır.
 const BEDROCK_IMAGE_MODELS = [
   "stability.stable-image-ultra-v1:1",

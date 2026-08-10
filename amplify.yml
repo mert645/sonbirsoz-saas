@@ -1,0 +1,48 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        # Amplify SSR runtime'ı (Lambda) env değişkenlerini otomatik almaz.
+        # Next.js'in runtime'da okuyabilmesi için .env.production'a yazıyoruz.
+        # `|| true`: ilgili env tanımlı değilse grep exit 1 döner, build'i düşürmesin.
+        - env | grep -e DATABASE_URL >> .env.production || true
+        - env | grep -e NEXTAUTH_SECRET >> .env.production || true
+        - env | grep -e NEXTAUTH_URL >> .env.production || true
+        - env | grep -e CRON_SECRET >> .env.production || true
+        - env | grep -e ADMIN_AUTH_DISABLED >> .env.production || true
+        - env | grep -e SEED_ADMIN_ >> .env.production || true
+        - env | grep -e NEXT_PUBLIC_ >> .env.production || true
+        - env | grep -e SSM_ >> .env.production || true
+        - env | grep -e BEDROCK_ >> .env.production || true
+        - env | grep -e CUSTOM_AWS_ >> .env.production || true
+        - env | grep -e OPENAI_API_KEY >> .env.production || true
+        - env | grep -e VAPID_ >> .env.production || true
+        - env | grep -e TWITTER_ >> .env.production || true
+        - env | grep -e TELEGRAM_ >> .env.production || true
+        - env | grep -e FACEBOOK_ >> .env.production || true
+        - env | grep -e INSTAGRAM_ >> .env.production || true
+        - env | grep -e YOUTUBE_ >> .env.production || true
+        - env | grep -e INDEXNOW_KEY >> .env.production || true
+        - env | grep -e SES_ >> .env.production || true
+        - env | grep -e EMAIL_ >> .env.production || true
+        - env | grep -e MEDIA_BUCKET >> .env.production || true
+        - env | grep -e FFMPEG_BINARY_URL >> .env.production || true
+        - env | grep -e BASE_DOMAIN >> .env.production || true
+        - env | grep -e DEV_TENANT_SLUG >> .env.production || true
+        - npx prisma generate
+        - npx prisma db push --accept-data-loss || echo "DB push skipped (DATABASE_URL not reachable)"
+        - npx prisma db seed || echo "Seed skipped or already applied"
+        - npm run build
+        # Amplify artifact limiti 220MB — Turbopack build cache'i artifact'a girmesin
+        - rm -rf .next/cache
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*

@@ -1,18 +1,12 @@
-import { Header } from "@/components/layout/header";
-import { Footer } from "@/components/layout/footer";
-import { InstallPrompt } from "@/components/shared/install-prompt";
+// Public sayfalar kendi Header/Footer'larını kullanıyor
+// Bu layout sadece children'ı render ediyor
 
 export default function PublicLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <Header />
-      <main className="min-h-screen">{children}</main>
-      <Footer />
-      <InstallPrompt />
-    </>
-  );
+  // Public sayfalar kendi Header/Footer'larını kullanıyor
+  // Bu layout sadece children'ı render ediyor
+  return <>{children}</>;
 }

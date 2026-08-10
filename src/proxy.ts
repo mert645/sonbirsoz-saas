@@ -188,9 +188,24 @@ export async function proxy(request: NextRequest) {
   // ─── MULTI-TENANT: Subdomain/Domain'den tenant belirleme ───
   let tenantSlug: string | null = null;
   
-  // Development ortamı
+  // Development ortamı - subdomain kontrolü (muzik.localhost:3000 gibi)
   if (host.includes("localhost") || host.includes("127.0.0.1")) {
-    tenantSlug = process.env.DEV_TENANT_SLUG || "demo";
+    // muzik.localhost:3000 -> muzik
+    const hostWithoutPort = host.split(":")[0]; // Port'u kaldır
+    const parts = hostWithoutPort.split(".");
+    
+    if (parts.length >= 2 && parts[parts.length - 1] === "localhost") {
+      // xxx.localhost formatı - subdomain var
+      const subdomain = parts[0];
+      if (subdomain !== "localhost" && subdomain !== "www") {
+        tenantSlug = subdomain;
+      }
+    }
+    
+    // Subdomain yoksa default tenant
+    if (!tenantSlug) {
+      tenantSlug = process.env.DEV_TENANT_SLUG || "demo";
+    }
   } else {
     // Production: subdomain kontrolü
     const baseDomain = process.env.BASE_DOMAIN || "sonbirsoz-saas.com";
@@ -204,31 +219,40 @@ export async function proxy(request: NextRequest) {
   }
 
   // Tenant header'ı ekle (server component'larda kullanılacak)
-  const response = NextResponse.next();
+  // NextResponse.next() ile request headers'a ekliyoruz
+  const requestHeaders = new Headers(request.headers);
   if (tenantSlug) {
-    response.headers.set("x-tenant-slug", tenantSlug);
+    requestHeaders.set("x-tenant-slug", tenantSlug);
   }
   
-  // Güvenlik header'larını ekle
-  addSecurityHeaders(response);
+  // Helper: tenant header'lı response oluştur
+  function createResponse(): NextResponse {
+    const res = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+    addSecurityHeaders(res);
+    return res;
+  }
 
   // API rate limiting (yalnızca eşleşen hassas yollar)
   if (pathname.startsWith("/api/")) {
     const limited = applyRateLimit(request);
     if (limited) return limited;
-    return response;
+    return createResponse();
   }
 
   // ─── SUPER ADMIN GİRİŞ SAYFASI ───
   // Bu sayfa public, auth gerektirmez
   if (pathname === "/superadmin-giris") {
-    return NextResponse.next();
+    return createResponse();
   }
 
   // ─── SUPER ADMIN ROUTES ───
   if (pathname.startsWith("/superadmin")) {
     if (isAuthBypassEnabled()) {
-      return NextResponse.next();
+      return createResponse();
     }
 
     const token = await getToken({
@@ -244,7 +268,7 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    return NextResponse.next();
+    return createResponse();
   }
 
   // Eski sonbirsoz.com haber URL'leri (/haber-slug) → /kategori/haber-slug 301
@@ -264,7 +288,7 @@ export async function proxy(request: NextRequest) {
     const legacyRedirect = await handleLegacyArticleUrl(request);
     if (legacyRedirect) return legacyRedirect;
     // Admin dışı tüm yollar (public sayfalar) auth guard'a tabi değildir.
-    return NextResponse.next();
+    return createResponse();
   }
 
   // Buradan itibaren yalnızca /admin/* yolları — auth guard uygulanır.
@@ -274,7 +298,7 @@ export async function proxy(request: NextRequest) {
     if (pathname === "/admin/giris") {
       return NextResponse.redirect(new URL("/admin/dashboard", request.url));
     }
-    return NextResponse.next();
+    return createResponse();
   }
 
   const token = await getToken({
@@ -289,7 +313,7 @@ export async function proxy(request: NextRequest) {
     if (isAuthed) {
       return NextResponse.redirect(new URL("/admin/dashboard", request.url));
     }
-    return NextResponse.next();
+    return createResponse();
   }
 
   if (!isAuthed) {
@@ -298,7 +322,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return createResponse();
 }
 
 export const config = {

@@ -1,5 +1,4 @@
 import { headers } from "next/headers";
-import { cache } from "react";
 import { prisma } from "@/lib/db";
 
 export interface TenantContext {
@@ -17,22 +16,20 @@ export interface TenantContext {
 }
 
 /**
+ * Server-side: Request header'larından tenant slug'ını alır
+ */
+async function getTenantSlug(): Promise<string> {
+  const headersList = await headers();
+  const tenantSlug = headersList.get("x-tenant-slug");
+  return tenantSlug || process.env.DEV_TENANT_SLUG || "demo";
+}
+
+/**
  * Server-side: Request header'larından tenant'ı belirler
  * Proxy.ts tarafından x-tenant-slug header'ı eklenir
  */
-export const getCurrentTenantId = cache(async (): Promise<string | null> => {
-  const headersList = await headers();
-  const tenantSlug = headersList.get("x-tenant-slug");
-  
-  if (!tenantSlug) {
-    // Development fallback
-    const devSlug = process.env.DEV_TENANT_SLUG || "demo";
-    const tenant = await prisma.tenant.findUnique({
-      where: { slug: devSlug },
-      select: { id: true },
-    });
-    return tenant?.id || null;
-  }
+export async function getCurrentTenantId(): Promise<string | null> {
+  const tenantSlug = await getTenantSlug();
 
   const tenant = await prisma.tenant.findUnique({
     where: { slug: tenantSlug, isActive: true },
@@ -40,18 +37,13 @@ export const getCurrentTenantId = cache(async (): Promise<string | null> => {
   });
 
   return tenant?.id || null;
-});
+}
 
 /**
  * Server-side: Tam tenant context'i döner
  */
-export const getCurrentTenant = cache(async (): Promise<TenantContext | null> => {
-  const headersList = await headers();
-  let tenantSlug = headersList.get("x-tenant-slug");
-  
-  if (!tenantSlug) {
-    tenantSlug = process.env.DEV_TENANT_SLUG || "demo";
-  }
+export async function getCurrentTenant(): Promise<TenantContext | null> {
+  const tenantSlug = await getTenantSlug();
 
   const tenant = await prisma.tenant.findUnique({
     where: { slug: tenantSlug, isActive: true },
@@ -77,7 +69,7 @@ export const getCurrentTenant = cache(async (): Promise<TenantContext | null> =>
     plan: tenant.plan,
     settings: tenant.settings,
   };
-});
+}
 
 /**
  * API route'larında kullanmak için tenant ID'yi zorunlu olarak alır

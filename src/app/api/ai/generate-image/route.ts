@@ -4,6 +4,7 @@ import {
   generateImage,
   buildNewsImagePrompt,
   type ImagePurpose,
+  hasAnyImageProvider,
 } from "@/lib/ai/media-generator";
 import { requireEditor } from "@/lib/data/article-mutations";
 
@@ -19,6 +20,19 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+  }
+
+  // API anahtarı kontrolü
+  if (!hasAnyImageProvider()) {
+    return NextResponse.json(
+      {
+        error: "Görsel üretimi yapılandırılmamış",
+        details:
+          "AI görsel üretimi için SSM_CONTENT_API_KEY, OPENAI_API_KEY veya AWS Bedrock kimlik bilgilerinden en az biri .env dosyasında tanımlanmalıdır.",
+        missingConfig: true,
+      },
+      { status: 503 },
+    );
   }
 
   try {
