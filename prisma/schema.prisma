@@ -61,6 +61,8 @@ model Tenant {
   subscription       TenantSubscription?
   apiKeys            ApiKey[]
   webhooks           Webhook[]
+  brands             Brand[]
+  contentSources     ContentSource[]
 
   @@map("tenants")
 }
@@ -99,6 +101,10 @@ model TenantSettings {
   pushEnabled           Boolean @default(true)
   customDomainEnabled   Boolean @default(false)
   apiAccessEnabled      Boolean @default(false)
+
+  // C6: Ana hesap koruma — bu kimlikler hiçbir markaya bağlanamaz
+  // JSON dizisi: ["instagram_id_1", "fb_page_id_1", "yt_channel_id_1"]
+  protectedAccountIds   Json    @default("[]")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -198,6 +204,22 @@ enum SocialPlatform {
   FACEBOOK
   TELEGRAM
   YOUTUBE
+}
+
+enum ContentPolicy {
+  STANDARD // Genel içerik — AI mod + hukuki uyarı insan kuyruğuna
+  NEWS     // Haber platformu — hukuki bulgu PENDING_APPROVAL olur
+  CRIME    // Suç/asayiş — her gönderi tek tek onay, video yok
+}
+
+enum BrandPostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  SCHEDULED
+  POSTED
+  FAILED
 }
 
 enum SocialPostStatus {
@@ -492,6 +514,143 @@ model AIGenerationJob {
 
   @@index([tenantId, status, createdAt(sort: Desc)])
   @@map("ai_generation_jobs")
+}
+
+// ─── BRANDS (ALT HESAPLAR) ───
+
+/**
+ * Tenant altında marka: Son Bir Söz Magazin, Tarih, Teknoloji, Suç, Spor.
+ * Her marka kendi sosyal hesaplarına, içerik kaynaklarına ve yayın saatlerine sahip.
+ */
+model Brand {
+  id               String        @id @default(cuid())
+  tenantId         String
+  name             String        // "Son Bir Söz Magazin"
+  slug             String        // "magazin"
+  color            String        @default("#4F46E5")
+  logoUrl          String?
+  voiceGuidelines  String?       // Marka sesi — AI istemine eklenir
+  defaultHashtags  String[]      // ["#magazin", "#SonBirSözMagazin"]
+  cardLabel        String?       // "MAGAZİN" — kart üst etiketi
+  contentPolicy    ContentPolicy @default(NEWS)
+  requiresApproval Boolean       @default(true)
+  dailyPostLimit   Int           @default(3)
+  // Tercih edilen yayın saatleri: ["10:00", "17:00", "21:30"] (TR saati)
+  preferredTimes   String[]
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  socialAccounts BrandSocialAccount[]
+  contentSources ContentSource[]
+  brandPosts     BrandPost[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("brands")
+}
+
+/**
+ * Markaya bağlı sosyal medya hesabı.
+ * token şifreli saklanır (SOCIAL_ENCRYPTION_KEY ile AES-256-GCM).
+ */
+model BrandSocialAccount {
+  id          String         @id @default(cuid())
+  brandId     String
+  platform    SocialPlatform
+  accountId   String         // IG: instagram_business_account.id
+  pageId      String?        // FB: page id (IG API için gerekli)
+  username    String?
+  encToken    String         // şifreli page access token (süresiz sistem kullanıcısı)
+  verified    Boolean        @default(false)
+  lastError   String?
+  lastVerifiedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  brand Brand      @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  posts BrandPost[]
+
+  @@unique([brandId, platform])
+  @@index([brandId])
+  @@map("brand_social_accounts")
+}
+
+/**
+ * Marka gönderisi: RSS'ten ya da editörden üretilen, onay/zamanlama akışındaki gönderi.
+ */
+model BrandPost {
+  id            String          @id @default(cuid())
+  brandId       String
+  accountId     String?         // hedef BrandSocialAccount
+  status        BrandPostStatus @default(DRAFT)
+  caption       String          // paylaşım metni (marka sesiyle üretilmiş)
+  imageUrl      String?         // kapak ya da marka kartı URL'i
+  sourceUrl     String?         // kaynak haber linki
+  internalLabel String?         // "kaynak: https://sonbirsoz.com/..."
+  rejectionNote String?
+  scheduledAt   DateTime?
+  postedAt      DateTime?
+  externalId    String?         // platform'daki gönderi ID
+  error         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  brand   Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  account BrandSocialAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  @@index([brandId, status, scheduledAt])
+  @@index([brandId, createdAt(sort: Desc)])
+  @@map("brand_posts")
+}
+
+// ─── CONTENT SOURCES (RSS BESLEME) ───
+
+/**
+ * Marka için içerik kaynağı: sonbirsoz.com RSS beslemesi + filtre.
+ */
+model ContentSource {
+  id               String    @id @default(cuid())
+  tenantId         String
+  brandId          String
+  name             String    // "Son Bir Söz Magazin RSS"
+  url              String    // "https://www.sonbirsoz.com/rss/magazin.xml"
+  keywords         String[]  // anahtar kelime filtresi (boşsa tüm öğeler)
+  excludeKeywords  String[]  // dışlanacak kelimeler
+  // freshnessDays: bu kadar günden eski öğeler alınmaz (Spor=1, Tarih=4 ...)
+  freshnessDays    Int       @default(2)
+  isActive         Boolean   @default(true)
+  lastFetchedAt    DateTime?
+  lastError        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  brand  Brand               @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  items  ContentSourceItem[]
+
+  @@unique([brandId, url])
+  @@index([tenantId])
+  @@index([brandId])
+  @@map("content_sources")
+}
+
+/**
+ * Tekrar önleme: her işlenen RSS öğesinin guid'i burada tutulur.
+ */
+model ContentSourceItem {
+  id        String   @id @default(cuid())
+  sourceId  String
+  guid      String   // RSS öğesinin guid ya da link'i
+  postId    String?  // üretilen BrandPost id (varsa)
+  createdAt DateTime @default(now())
+
+  source ContentSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, guid])
+  @@index([sourceId, createdAt(sort: Desc)])
+  @@map("content_source_items")
 }
 
 // ─── SOCIAL MEDIA ───
